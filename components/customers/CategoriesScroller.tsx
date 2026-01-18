@@ -23,9 +23,9 @@ function CategoriesScroller() {
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
       {categoryItems.map((item) => {
-        const Icon = categoryIcons[item.icon] ?? Leaf;
+        const Icon = categoryIcons[item.icon as keyof typeof categoryIcons] ?? Leaf;
         return (
-          <button
+          <button 
             key={item.label}
             className="group flex min-w-[100px] flex-col items-center gap-2"
           >
