@@ -1,14 +1,16 @@
+"use client";
 import AuthLayout from "@/components/auth/AuthLayout";
 import Login from "@/components/auth/Login";
 
-function page() {
+function LoginPage() {
+
   return (
     <div>
-      <AuthLayout>
+      <AuthLayout className="justify-center">
        <Login />
       </AuthLayout>
     </div>
   );
 }
 
-export default page;
+export default LoginPage;

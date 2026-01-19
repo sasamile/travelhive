@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import toast from "react-hot-toast";
 import {
   Field,
   FieldContent,
@@ -13,9 +14,27 @@ import { Button } from "../ui/button";
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Simular login (sin backend)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success("Formulario validado correctamente. (Backend no implementado)");
+    } catch (err: any) {
+      toast.error("Error al procesar el formulario");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <form className="space-y-4">
+    <form className="space-y-4" onSubmit={handleSubmit}>
       <FieldSet className="space-y-4">
         <FieldGroup className="space-y-2">
           <Field className="flex flex-col gap-1.5">
@@ -27,6 +46,9 @@ function Login() {
                 className="h-12 w-full rounded-xl border border-gray-200 bg-transparent px-4 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-gray-700 dark:text-white"
                 placeholder="hola@ejemplo.com"
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </FieldContent>
             <FieldError className="sr-only">
@@ -50,6 +72,9 @@ function Login() {
                 className="h-12 w-full rounded-xl border border-gray-200 bg-transparent px-4 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-gray-700 dark:text-white"
                 placeholder="••••••••"
                 type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
               />
               <button
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary"
@@ -71,10 +96,11 @@ function Login() {
         </FieldGroup>
       </FieldSet>
       <Button
-        className="mt-8 h-12 w-full rounded-xl bg-primary font-bold tracking-wide text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+        className="mt-8 h-12 w-full rounded-xl bg-primary font-bold tracking-wide text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         type="submit"
+        disabled={loading}
       >
-        Iniciar Sesión
+        {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
       </Button>
     </form>
   );

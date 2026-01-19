@@ -10,11 +10,9 @@ type Step = {
 };
 
 const steps: Step[] = [
-  { id: "basic", label: "Basic Info", icon: Info },
-  { id: "itinerary", label: "Trip Planning", icon: Tag },
-  { id: "pricing", label: "Pricing & Tiers", icon: DollarSign },
-  { id: "terms", label: "Terms & Conditions", icon: Shield },
-  { id: "gallery", label: "Media Gallery", icon: Image },
+  { id: "basic", label: "Información Básica", icon: Info },
+  { id: "itinerary", label: "Planificación del Viaje", icon: Tag },
+  { id: "gallery", label: "Galería de Medios", icon: Image },
 ];
 
 interface StepperSidebarProps {
@@ -28,10 +26,10 @@ export default function StepperSidebar({ currentStep, onStepChange, completion }
     <aside className="w-72 border-r border-neutral-100 bg-white flex flex-col">
       <div className="p-6 space-y-8">
         <div>
-          <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-4">Draft Progress</h3>
+          <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-4">Progreso del Borrador</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-end">
-              <span className="text-xs font-medium text-slate-600">Completion</span>
+              <span className="text-xs font-medium text-slate-600">Completitud</span>
               <span className="text-xs font-bold text-indigo-600">{completion}%</span>
             </div>
             <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden">
@@ -72,8 +70,8 @@ export default function StepperSidebar({ currentStep, onStepChange, completion }
             <HelpCircle className="text-slate-400 text-lg" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-700">Creation Guide</p>
-            <p className="text-[10px] text-slate-500">Need help with this section?</p>
+            <p className="text-xs font-semibold text-slate-700">Guía de Creación</p>
+            <p className="text-[10px] text-slate-500">¿Necesitas ayuda con esta sección?</p>
           </div>
         </div>
       </div>

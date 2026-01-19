@@ -4,9 +4,10 @@ import { CheckCircle } from 'lucide-react'
 type PoliciesSectionProps = {
   rules: string[]
   safety: InfoItem[]
+  cancellationPolicy?: string
 }
 
-export function PoliciesSection({ rules, safety }: PoliciesSectionProps) {
+export function PoliciesSection({ rules, safety, cancellationPolicy }: PoliciesSectionProps) {
   return (
     <section className="mt-20 py-16 border-t border-gray-100 dark:border-gray-800 grid grid-cols-1 md:grid-cols-3 gap-12">
       <div>
@@ -46,13 +47,13 @@ export function PoliciesSection({ rules, safety }: PoliciesSectionProps) {
           Política de Cancelación
         </h4>
         <p className="text-sm leading-relaxed text-gray-500">
-          Reembolso total por cancelaciones realizadas dentro de las 48 horas
-          posteriores a la reserva, siempre que falten al menos 14 días para el
-          inicio del viaje.
+          {cancellationPolicy || "Reembolso total por cancelaciones realizadas dentro de las 48 horas posteriores a la reserva, siempre que falten al menos 14 días para el inicio del viaje."}
         </p>
-        <button className="mt-4 text-sm font-bold underline hover:text-primary">
-          Ver más detalles
-        </button>
+        {cancellationPolicy && (
+          <button className="mt-4 text-sm font-bold underline hover:text-primary">
+            Ver más detalles
+          </button>
+        )}
       </div>
     </section>
   )

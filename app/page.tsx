@@ -1,9 +1,8 @@
-import React from 'react'
+"use client";
 
-function page() {
-  return (
-    <div>page</div>
-  )
+function HomePage() {
+  // Mostrar contenido (sin autenticación)
+  return <div>page</div>;
 }
 
-export default page
+export default HomePage;

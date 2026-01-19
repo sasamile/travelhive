@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowRight,
   CalendarRange,
@@ -8,9 +10,12 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { AgentHeader } from "@/components/agent/AgentHeader";
 
 function Page() {
+  const router = useRouter();
+
   return (
     <main className="flex flex-col min-h-screen">
       <AgentHeader
@@ -18,9 +23,12 @@ function Page() {
         searchPlaceholder="Buscar viajes o análisis..."
         showNotifications
         actions={
-          <button className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors">
+          <button 
+            onClick={() => router.push("/new")}
+            className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+          >
             <Plus className="size-4" />
-            Crear Expedición
+            Crear Viaje
           </button>
         }
       />
@@ -57,7 +65,7 @@ function Page() {
                       75%
                     </span>
                     <p className="text-[10px] text-text-muted uppercase tracking-tighter">
-                      Progress
+                      Progreso
                     </p>
                   </div>
                 </div>
@@ -126,10 +134,10 @@ function Page() {
                   </span>
                 </div>
                 <h4 className="text-2xl font-semibold tracking-tight">
-                  $142,850.00
+                  $142.850.00
                 </h4>
                     <p className="text-[10px] text-text-muted mt-4">
-                      vs. $127,100.00 el mes pasado
+                      vs. $127.100,00 el mes pasado
                     </p>
               </div>
               <div className="bg-white border border-border-muted p-6 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
@@ -138,10 +146,10 @@ function Page() {
                       Ocupación Promedio
                     </p>
                   <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">
-                    Stable
+                    Estable
                   </span>
                 </div>
-                <h4 className="text-2xl font-semibold tracking-tight">88.2%</h4>
+                <h4 className="text-2xl font-semibold tracking-tight">88,2%</h4>
                     <p className="text-[10px] text-text-muted mt-4">
                       Promedio en 14 ubicaciones
                     </p>
@@ -190,7 +198,7 @@ function Page() {
                             Patagonia Ridge Expedition
                           </h5>
                           <span className="text-[10px] font-bold text-emerald-600">
-                            ACTIVE
+                            ACTIVO
                           </span>
                         </div>
                         <p className="text-xs text-text-muted mt-1">
@@ -203,7 +211,7 @@ function Page() {
                             <div className="size-5 rounded-full border border-white bg-zinc-400"></div>
                           </div>
                           <span className="text-[10px] font-medium text-zinc-500">
-                            92% Booked
+                            92% Reservado
                           </span>
                         </div>
                       </div>
@@ -224,7 +232,7 @@ function Page() {
                             Aegean Blue Voyage
                           </h5>
                           <span className="text-[10px] font-bold text-primary">
-                            SCHEDULED
+                            PROGRAMADO
                           </span>
                         </div>
                         <p className="text-xs text-text-muted mt-1">
@@ -236,7 +244,7 @@ function Page() {
                             <div className="size-5 rounded-full border border-white bg-zinc-300"></div>
                           </div>
                           <span className="text-[10px] font-medium text-zinc-500">
-                            45% Booked
+                            45% Reservado
                           </span>
                         </div>
                       </div>
@@ -257,7 +265,7 @@ function Page() {
                             Kyoto Zen Retreat
                           </h5>
                           <span className="text-[10px] font-bold text-amber-600">
-                            WAITLIST
+                            LISTA DE ESPERA
                           </span>
                         </div>
                         <p className="text-xs text-text-muted mt-1">
@@ -270,7 +278,7 @@ function Page() {
                             <div className="size-5 rounded-full border border-white bg-zinc-400"></div>
                           </div>
                           <span className="text-[10px] font-medium text-zinc-500">
-                            100% Full
+                            100% Completo
                           </span>
                         </div>
                       </div>
@@ -303,19 +311,19 @@ function Page() {
                 </div>
                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur p-4 rounded-xl border border-border-muted shadow-sm max-w-[180px]">
                   <h6 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
-                    Live Fleet
+                    Flota Activa
                   </h6>
                   <div className="space-y-2">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-zinc-600">Active</span>
+                      <span className="text-zinc-600">Activo</span>
                       <span className="font-bold">8</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-zinc-600">Pending</span>
+                      <span className="text-zinc-600">Pendiente</span>
                       <span className="font-bold">4</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-zinc-600">Archived</span>
+                      <span className="text-zinc-600">Archivado</span>
                       <span className="font-bold">2</span>
                     </div>
                   </div>

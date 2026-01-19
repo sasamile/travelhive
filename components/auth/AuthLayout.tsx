@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "../ui/button";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
@@ -10,13 +9,16 @@ function AuthLayout({
   children,
   role = "user",
   userRole = () => {},
+  className = "",
 }: {
   children: React.ReactNode;
   role?: "user" | "host";
   userRole?: React.Dispatch<React.SetStateAction<"user" | "host">>;
+  className?: string;
 }) {
   const pathname = usePathname();
   const isLoginPage = pathname?.includes("/login");
+  const isCompleteProfilePage = pathname?.includes("/complete-profile");
 
   return (
     <div className="flex-1 flex min-h-screen lg:h-screen lg:overflow-hidden ">
@@ -42,18 +44,31 @@ function AuthLayout({
           </div>
         </div>
       </div>
-      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 md:p-12 lg:p-20  mt-8 overflow-y-auto custom-scrollbar lg:h-screen">
-        <div className="w-full max-w-[480px] space-y-8">
+      <div className={`w-full lg:w-1/2 flex flex-col items-center ${className} p-6 md:p-12  overflow-y-auto custom-scrollbar lg:h-screen`}>
+        <div className="w-full max-w-[480px] space-y-8 py-8">
           <div className="flex flex-col gap-2">
-            <h2 className="font-caveat text-[#121717] dark:text-white text-4xl font-bold text-center leading-tight tracking-[-0.033em]">
-              Bienvenido a TravelHive
-            </h2>
-            <p className="text-[#657f81] text-center dark:text-gray-400 text-base font-normal">
-              Explora el mundo con nosotros. Por favor, ingresa tus datos.
-            </p>
+            {isCompleteProfilePage ? (
+              <>
+                <h2 className="font-caveat text-[#121717] dark:text-white text-4xl font-bold text-center leading-tight tracking-[-0.033em]">
+                  Completa tu perfil
+                </h2>
+                <p className="text-[#657f81] text-center dark:text-gray-400 text-base font-normal">
+                  Necesitamos algunos datos adicionales para validar tu cuenta de anfitrión.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="font-caveat text-[#121717] dark:text-white text-4xl font-bold text-center leading-tight tracking-[-0.033em]">
+                  {pathname?.includes("/register") ? "Regístrate en TravelHive" : "Inicia sesión en TravelHive"}
+                </h2>
+                <p className="text-[#657f81] text-center dark:text-gray-400 text-base font-normal">
+                  Explora el mundo con nosotros. Por favor, ingresa tus datos.
+                </p>
+              </>
+            )}
           </div>
 
-          {!isLoginPage && (
+          {!isLoginPage && !isCompleteProfilePage && (
             <div className="flex justify-center mb-4 w-full">
               <Tabs
                 className="w-full"
@@ -72,55 +87,57 @@ function AuthLayout({
             </div>
           )}
 
-          {/* Google Auth Button, cambia endpoint y texto según página y rol */}
-          <div className="flex flex-col gap-3">
-            <Button
-              className="flex items-center justify-center gap-3 w-full h-12 px-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[#121717] dark:text-white text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              asChild
-            >
-              <a
-                href={
-                  pathname?.includes("/register")
-                    ? `/api/auth/google/register?role=${role}`
-                    : `/api/auth/google/login?role=${role}`
-                }
-              >
-                <Image src="/google.svg" alt="Google" width={20} height={20} />
-                <span className="truncate">
-                  {pathname?.includes("/register")
-                    ? "Registrarse con Google"
-                    : "Continuar con Google"}
-                </span>
-              </a>
-            </Button>
-          </div>
+          {/* Google Auth Button */}
+          {!isCompleteProfilePage && (
+            <>
+              <div className="flex flex-col gap-3">
+                <Button
+                  className="flex items-center justify-center gap-3 w-full h-12 px-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[#121717] dark:text-white text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => {
+                    // Backend no implementado
+                    console.log("Google Auth no implementado");
+                  }}
+                  disabled
+                >
+                  <Image src="/google.svg" alt="Google" width={20} height={20} />
+                  <span className="truncate">
+                    {pathname?.includes("/register")
+                      ? "Registrarse con Google (No disponible)"
+                      : "Continuar con Google (No disponible)"}
+                  </span>
+                </Button>
+              </div>
 
-          <div className="relative flex  items-center">
-            <div className="grow border-t border-gray-200 dark:border-gray-700" />
-            <span className="shrink mx-4 text-[#657f81] text-xs font-medium uppercase tracking-widest">
-              o usa tu correo
-            </span>
-            <div className="grow border-t border-gray-200 dark:border-gray-700" />
-          </div>
+              <div className="relative flex  items-center">
+                <div className="grow border-t border-gray-200 dark:border-gray-700" />
+                <span className="shrink mx-4 text-[#657f81] text-xs font-medium uppercase tracking-widest">
+                  o usa tu correo
+                </span>
+                <div className="grow border-t border-gray-200 dark:border-gray-700" />
+              </div>
+            </>
+          )}
           {children}
-          <p className="text-center text-[#657f81] text-sm">
-            ¿No tienes una cuenta?{" "}
-            {pathname?.includes("/register") ? (
-              <a
-                className="text-primary font-bold hover:underline"
-                href={`/auth/login`}
-              >
-                Inicia sesión
-              </a>
-            ) : (
-              <a
-                className="text-primary font-bold hover:underline"
-                href={`/auth/register`}
-              >
-                Regístrate gratis
-              </a>
-            )}
-          </p>
+          {!isCompleteProfilePage && (
+            <p className="text-center text-[#657f81] text-sm">
+              ¿No tienes una cuenta?{" "}
+              {pathname?.includes("/register") ? (
+                <a
+                  className="text-primary font-bold hover:underline"
+                  href={`/auth/login`}
+                >
+                  Inicia sesión
+                </a>
+              ) : (
+                <a
+                  className="text-primary font-bold hover:underline"
+                  href={`/auth/register`}
+                >
+                  Regístrate gratis
+                </a>
+              )}
+            </p>
+          )}
         </div>
       </div>
     </div>
