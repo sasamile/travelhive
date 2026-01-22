@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, MapPin, Image as ImageIcon, X, Upload, Tag } from "lucide-react";
+import { Plus, Trash2, MapPin, X, Tag } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTripStore } from "@/store/tripStore";
 
 interface ItineraryStepProps {
   tripId?: string;
@@ -13,10 +14,10 @@ interface Activity {
   title: string;
   description?: string;
   time?: string;
-  imageData?: string; // Base64 en lugar de URL
   latitude?: number;
   longitude?: number;
   poiId?: string;
+  order?: number;
 }
 
 interface Day {
@@ -27,100 +28,52 @@ interface Day {
   order: number;
 }
 
-const STORAGE_KEY_ITINERARY = "trip_itinerary_draft";
 
 export default function ItineraryStep({ tripId }: ItineraryStepProps) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-  const [days, setDays] = useState<Day[]>([]);
+  const tripData = useTripStore((state) => state.tripData);
+  const setItinerary = useTripStore((state) => state.setItinerary);
+  
+  // Inicializar desde el store de Zustand (que ya tiene persistencia)
+  const [days, setDays] = useState<Day[]>(tripData.itinerary || []);
   const [saving, setSaving] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [currentDayIndex, setCurrentDayIndex] = useState<number | null>(null);
-  const [editingActivityIndex, setEditingActivityIndex] = useState<number | null>(null); // Para editar actividad existente
+  const [editingActivityIndex, setEditingActivityIndex] = useState<number | null>(null);
   const [tempActivity, setTempActivity] = useState<Partial<Activity>>({
     type: "activity",
     title: "",
     description: "",
     time: "",
   });
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cargar itinerario guardado del localStorage
+  // Sincronizar con el store cuando cambie desde otro lugar
   useEffect(() => {
-    if (!tripId) {
-      // Cargar del localStorage
-      const stored = localStorage.getItem(STORAGE_KEY_ITINERARY);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          // Solo establecer si es un array válido y no está vacío
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setDays(parsed);
-          } else {
-            // Si está vacío o no es válido, asegurar que days esté vacío
-            setDays([]);
-          }
-        } catch (error) {
-          console.error("Error al cargar itinerario del localStorage:", error);
-          setDays([]);
-        }
-      } else {
-        // Si no hay nada guardado, asegurar que days esté vacío
-        setDays([]);
-      }
-    } else {
-      // Cargar del localStorage con tripId
-      const stored = localStorage.getItem(`${STORAGE_KEY_ITINERARY}_${tripId}`);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          // Solo establecer si es un array válido y no está vacío
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setDays(parsed);
-          } else {
-            // Si está vacío o no es válido, asegurar que days esté vacío
-            setDays([]);
-          }
-        } catch (error) {
-          console.error("Error al cargar itinerario:", error);
-          setDays([]);
-        }
-      } else {
-        // Si no hay nada guardado, asegurar que days esté vacío
-        setDays([]);
+    if (tripData.itinerary && tripData.itinerary.length > 0) {
+      const storeStr = JSON.stringify(tripData.itinerary);
+      const localStr = JSON.stringify(days);
+      // Solo actualizar si hay diferencias
+      if (storeStr !== localStr) {
+        console.log("📅 ItineraryStep: Sincronizando días desde el store", tripData.itinerary.length);
+        setDays(tripData.itinerary);
       }
     }
-  }, [tripId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripData.itinerary]);
 
-  // Guardar en localStorage automáticamente - SIEMPRE guardar cuando hay días
+  // Guardar en el store de Zustand automáticamente cuando cambien los días
+  // Solo como respaldo, ya que las funciones individuales guardan inmediatamente
   useEffect(() => {
-    // Solo guardar si hay días para evitar guardar arrays vacíos
-    if (days.length > 0) {
-      const keyWithTripId = tripId ? `${STORAGE_KEY_ITINERARY}_${tripId}` : null;
-      const keyBase = STORAGE_KEY_ITINERARY;
-      
-      // Guardar siempre en ambas claves para asegurar persistencia
-      if (keyWithTripId) {
-        localStorage.setItem(keyWithTripId, JSON.stringify(days));
+    // Usar un pequeño delay para evitar actualizaciones durante el render
+    const timeoutId = setTimeout(() => {
+      // Solo actualizar si hay diferencias para evitar loops
+      const storeStr = JSON.stringify(tripData.itinerary || []);
+      const localStr = JSON.stringify(days);
+      if (storeStr !== localStr) {
+        setItinerary(days);
       }
-      localStorage.setItem(keyBase, JSON.stringify(days));
-    }
-  }, [days, tripId]);
-
-  // Cleanup: guardar antes de desmontar el componente si hay días
-  useEffect(() => {
-    return () => {
-      // Guardar una última vez antes de desmontar solo si hay días
-      if (days.length > 0) {
-        const keyWithTripId = tripId ? `${STORAGE_KEY_ITINERARY}_${tripId}` : null;
-        const keyBase = STORAGE_KEY_ITINERARY;
-        
-        if (keyWithTripId) {
-          localStorage.setItem(keyWithTripId, JSON.stringify(days));
-        }
-        localStorage.setItem(keyBase, JSON.stringify(days));
-      }
-    };
-  }, [days, tripId]);
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [days, setItinerary, tripData.itinerary]);
 
   const addDay = () => {
     const newDay: Day = {
@@ -132,29 +85,10 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
     };
     const updatedDays = [...days, newDay];
     setDays(updatedDays);
-    
-    // Guardar inmediatamente en localStorage
-    const keyWithTripId = tripId ? `${STORAGE_KEY_ITINERARY}_${tripId}` : null;
-    const keyBase = STORAGE_KEY_ITINERARY;
-    if (keyWithTripId) {
-      localStorage.setItem(keyWithTripId, JSON.stringify(updatedDays));
-    }
-    localStorage.setItem(keyBase, JSON.stringify(updatedDays));
-  };
-
-  // Función helper para guardar en localStorage
-  const saveToLocalStorage = (daysToSave: Day[]) => {
-    const keyWithTripId = tripId ? `${STORAGE_KEY_ITINERARY}_${tripId}` : null;
-    const keyBase = STORAGE_KEY_ITINERARY;
-    if (keyWithTripId) {
-      localStorage.setItem(keyWithTripId, JSON.stringify(daysToSave));
-    }
-    localStorage.setItem(keyBase, JSON.stringify(daysToSave));
-    
-    // Disparar evento personalizado para notificar al componente padre
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("itineraryUpdated"));
-    }
+    // Guardar inmediatamente en el store
+    setTimeout(() => {
+      setItinerary(updatedDays);
+    }, 0);
   };
 
   const removeDay = (dayIndex: number) => {
@@ -162,27 +96,19 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
       .filter((_, idx) => idx !== dayIndex)
       .map((d, idx) => ({ ...d, day: idx + 1, order: idx + 1 }));
     setDays(updatedDays);
-    
-    // Guardar inmediatamente en localStorage
-    if (updatedDays.length > 0) {
-      saveToLocalStorage(updatedDays);
-    } else {
-      // Si no hay días, eliminar del localStorage
-      const keyWithTripId = tripId ? `${STORAGE_KEY_ITINERARY}_${tripId}` : null;
-      const keyBase = STORAGE_KEY_ITINERARY;
-      if (keyWithTripId) {
-        localStorage.removeItem(keyWithTripId);
-      }
-      localStorage.removeItem(keyBase);
-    }
+    // Guardar inmediatamente en el store
+    setTimeout(() => {
+      setItinerary(updatedDays);
+    }, 0);
   };
 
   const updateDay = (dayIndex: number, field: keyof Day, value: any) => {
     const updatedDays = days.map((d, idx) => (idx === dayIndex ? { ...d, [field]: value } : d));
     setDays(updatedDays);
-    
-    // Guardar inmediatamente en localStorage
-    saveToLocalStorage(updatedDays);
+    // Guardar inmediatamente en el store
+    setTimeout(() => {
+      setItinerary(updatedDays);
+    }, 0);
   };
 
   const openActivityModal = (dayIndex: number, activityIndex?: number) => {
@@ -197,10 +123,10 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
         title: activity.title,
         description: activity.description || "",
         time: activity.time || "",
-        imageData: activity.imageData,
         latitude: activity.latitude,
         longitude: activity.longitude,
         poiId: activity.poiId,
+        order: activity.order,
       });
     } else {
       // Modo creación: actividad nueva
@@ -211,9 +137,6 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
         description: "",
         time: "",
       });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
     
     setShowActivityModal(true);
@@ -229,36 +152,6 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
       description: "",
       time: "",
     });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validar que sea una imagen
-    if (!file.type.startsWith("image/")) {
-      toast.error("Por favor selecciona una imagen válida");
-      return;
-    }
-
-    // Validar tamaño (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("La imagen debe ser menor a 5MB");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      setTempActivity({ ...tempActivity, imageData: base64String });
-    };
-    reader.onerror = () => {
-      toast.error("Error al cargar la imagen");
-    };
-    reader.readAsDataURL(file);
   };
 
   const saveActivity = () => {
@@ -269,10 +162,10 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
       title: tempActivity.title || "",
       description: tempActivity.description || "",
       time: tempActivity.time || "",
-      imageData: tempActivity.imageData,
       latitude: tempActivity.latitude,
       longitude: tempActivity.longitude,
       poiId: tempActivity.poiId,
+      order: tempActivity.order || 0,
     };
 
     const updatedDays = [...days];
@@ -281,16 +174,20 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
       // Actualizar actividad existente
       updatedDays[currentDayIndex].activities[editingActivityIndex] = activityData;
       setDays(updatedDays);
-      // Guardar inmediatamente en localStorage
-      saveToLocalStorage(updatedDays);
+      // Guardar inmediatamente en el store
+      setTimeout(() => {
+        setItinerary(updatedDays);
+      }, 0);
       closeActivityModal();
       toast.success("Actividad actualizada");
     } else {
       // Agregar nueva actividad
       updatedDays[currentDayIndex].activities.push(activityData);
       setDays(updatedDays);
-      // Guardar inmediatamente en localStorage
-      saveToLocalStorage(updatedDays);
+      // Guardar inmediatamente en el store
+      setTimeout(() => {
+        setItinerary(updatedDays);
+      }, 0);
       closeActivityModal();
       toast.success("Actividad agregada");
     }
@@ -300,8 +197,10 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
     const updatedDays = [...days];
     updatedDays[dayIndex].activities.splice(activityIndex, 1);
     setDays(updatedDays);
-    // Guardar inmediatamente en localStorage
-    saveToLocalStorage(updatedDays);
+    // Guardar inmediatamente en el store
+    setTimeout(() => {
+      setItinerary(updatedDays);
+    }, 0);
   };
 
   const updateActivity = (
@@ -316,8 +215,7 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
       [field]: value,
     };
     setDays(updatedDays);
-    // Guardar inmediatamente en localStorage
-    saveToLocalStorage(updatedDays);
+    // El useEffect se encargará de guardar en el store automáticamente
   };
 
 
@@ -413,15 +311,6 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
                     className="bg-white border border-neutral-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
                   >
                     <div className="flex gap-4">
-                      {activity.imageData && (
-                        <div className="w-28 h-28 rounded-xl overflow-hidden shrink-0 border border-neutral-50">
-                          <img
-                            alt={activity.title || "Actividad"}
-                            className="w-full h-full object-cover"
-                            src={activity.imageData}
-                          />
-                        </div>
-                      )}
                       <div className="flex-1 flex flex-col gap-3">
                         {/* Tipo y botones de acción en la misma línea */}
                         <div className="flex items-start justify-between gap-2">
@@ -558,37 +447,6 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Imagen (opcional, máx. 5MB)
-                </label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 border border-neutral-200 rounded-lg text-sm text-slate-600 hover:bg-neutral-50 transition-colors"
-                  >
-                    <Upload className="size-4" />
-                    {tempActivity.imageData ? "Cambiar imagen" : "Subir imagen"}
-                  </button>
-                  {tempActivity.imageData && (
-                    <div className="flex-1 relative">
-                      <img
-                        src={tempActivity.imageData}
-                        alt="Preview"
-                        className="w-20 h-20 object-cover rounded-lg border border-neutral-200"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
 
             <div className="sticky bottom-0 bg-white border-t border-neutral-200 px-6 py-4 flex justify-end gap-3">

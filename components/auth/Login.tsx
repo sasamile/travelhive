@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import api from "@/lib/axios";
 import {
   Field,
   FieldContent,
@@ -12,7 +14,46 @@ import {
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { Button } from "../ui/button";
 
+// Función para traducir mensajes de error del inglés al español
+function translateErrorMessage(message: string): string {
+  const errorTranslations: Record<string, string> = {
+    "Invalid email or password": "Email o contraseña incorrectos",
+    "Invalid email or password.": "Email o contraseña incorrectos",
+    "Invalid credentials": "Credenciales inválidas",
+    "User not found": "Usuario no encontrado",
+    "Email already exists": "El email ya está registrado",
+    "Password is required": "La contraseña es requerida",
+    "Email is required": "El email es requerido",
+    "Invalid email format": "Formato de email inválido",
+    "Network Error": "Error de conexión. Por favor, intenta nuevamente",
+    "Request failed with status code 401": "Email o contraseña incorrectos",
+    "Unauthorized": "No autorizado. Verifica tus credenciales",
+  };
+
+  // Buscar traducción exacta
+  if (errorTranslations[message]) {
+    return errorTranslations[message];
+  }
+
+  // Buscar traducción por coincidencia parcial (case insensitive)
+  const lowerMessage = message.toLowerCase();
+  for (const [key, value] of Object.entries(errorTranslations)) {
+    if (lowerMessage.includes(key.toLowerCase())) {
+      return value;
+    }
+  }
+
+  // Si contiene "invalid email" o "invalid password"
+  if (lowerMessage.includes("invalid email") || lowerMessage.includes("invalid password")) {
+    return "Email o contraseña incorrectos";
+  }
+
+  // Devolver mensaje original si no hay traducción
+  return message;
+}
+
 function Login() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,11 +64,43 @@ function Login() {
     setLoading(true);
 
     try {
-      // Simular login (sin backend)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success("Formulario validado correctamente. (Backend no implementado)");
+      const response = await api.post("/api/auth/sign-in/email", {
+        email,
+        password,
+      });
+
+      toast.success("¡Bienvenido! Has iniciado sesión correctamente");
+
+      // Pequeño delay para asegurar que la cookie se establezca
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Usar la respuesta directa del login para determinar el rol
+      const loginData = response.data || response;
+
+      // Determinar el rol del usuario basado en la respuesta
+      let redirectPath = "/";
+      
+      // Verificar si tiene agencias (puede estar en loginData.agencies o response.data.agencies)
+      const agencies = loginData.agencies || loginData.data?.agencies;
+      
+      if (agencies && Array.isArray(agencies) && agencies.length > 0) {
+        // Si tiene agencias, es un agente/admin/anfitrión
+        redirectPath = "/agent";
+      } else {
+        // Si no tiene agencias, es un customer/viajero
+        redirectPath = "/customers";
+      }
+
+      // Redirigir usando window.location para forzar recarga completa y evitar loops
+      window.location.href = redirectPath;
     } catch (err: any) {
-      toast.error("Error al procesar el formulario");
+      const rawErrorMessage = err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Error al iniciar sesión. Verifica tus credenciales.";
+      
+      const translatedMessage = translateErrorMessage(rawErrorMessage);
+      toast.error(translatedMessage);
     } finally {
       setLoading(false);
     }
@@ -96,7 +169,7 @@ function Login() {
         </FieldGroup>
       </FieldSet>
       <Button
-        className="mt-8 h-12 w-full rounded-xl bg-primary font-bold tracking-wide text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mt-8 h-12 w-full cursor-pointer rounded-xl bg-primary font-bold tracking-wide text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         type="submit"
         disabled={loading}
       >

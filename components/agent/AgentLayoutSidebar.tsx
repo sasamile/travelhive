@@ -28,12 +28,6 @@ const navigationItems = [
     section: "management",
   },
   {
-    href: "/agent/bookings",
-    label: "Bookings",
-    icon: CalendarDays,
-    section: "management",
-  },
-  {
     href: "/agent/insights",
     label: "Insights",
     icon: LineChart,

@@ -87,28 +87,29 @@ function AuthLayout({
             </div>
           )}
 
-          {/* Google Auth Button */}
-          {!isCompleteProfilePage && (
+
+          {/* Google Auth Button - Solo para viajeros (mostrar en login siempre, en register solo si es viajero) */}
+          {!isCompleteProfilePage && (isLoginPage || role === "user") && (
             <>
               <div className="flex flex-col gap-3">
                 <Button
                   className="flex items-center justify-center gap-3 w-full h-12 px-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[#121717] dark:text-white text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   onClick={() => {
-                    // Backend no implementado
-                    console.log("Google Auth no implementado");
+                    // Backend no implementado aún
+                    console.log("Google Auth para viajero no implementado");
                   }}
                   disabled
                 >
                   <Image src="/google.svg" alt="Google" width={20} height={20} />
                   <span className="truncate">
                     {pathname?.includes("/register")
-                      ? "Registrarse con Google (No disponible)"
-                      : "Continuar con Google (No disponible)"}
+                      ? "Registrarse con Google"
+                      : "Continuar con Google"}
                   </span>
                 </Button>
               </div>
 
-              <div className="relative flex  items-center">
+              <div className="relative flex items-center">
                 <div className="grow border-t border-gray-200 dark:border-gray-700" />
                 <span className="shrink mx-4 text-[#657f81] text-xs font-medium uppercase tracking-widest">
                   o usa tu correo

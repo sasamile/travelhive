@@ -1,7 +1,8 @@
 "use client";
 
-import { Info, Tag, DollarSign, Shield, Image, HelpCircle, ChevronRight } from "lucide-react";
+import { Info, Tag, DollarSign, Shield, Image, HelpCircle, ChevronRight, Tent } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 type Step = {
   id: string;
@@ -24,7 +25,16 @@ interface StepperSidebarProps {
 export default function StepperSidebar({ currentStep, onStepChange, completion }: StepperSidebarProps) {
   return (
     <aside className="w-72 border-r border-neutral-100 bg-white flex flex-col">
-      <div className="p-6 space-y-8">
+      <div className=" h-[109px] mb-12 flex items-center border-b ">
+        <Link href="/agent">
+          <div className="font-caveat  px-6 text-3xl font-bold flex items-center gap-2">
+            <Tent className="h-6 w-6" />
+            TravelHive
+          </div>
+        </Link>
+      </div>
+      <div className="px-6 space-y-8">
+
         <div>
           <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-4">Progreso del Borrador</h3>
           <div className="space-y-3">

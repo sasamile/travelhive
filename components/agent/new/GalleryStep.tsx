@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, Star, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTripStore } from "@/store/tripStore";
 
 interface GalleryStepProps {
   tripId?: string;
@@ -11,43 +12,74 @@ interface GalleryStepProps {
 const STORAGE_KEY_GALLERY = "trip_gallery_draft";
 
 export default function GalleryStep({ tripId }: GalleryStepProps) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-  const [galleryImages, setGalleryImages] = useState<string[]>([]); // Base64 o URLs
-  const [coverImageIndex, setCoverImageIndex] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
+  const tripData = useTripStore((state) => state.tripData);
+  const setGalleryImages = useTripStore((state) => state.setGalleryImages);
+  const setCoverImageIndex = useTripStore((state) => state.setCoverImageIndex);
+  
+  // Inicializar desde el store de Zustand
+  const [galleryImages, setGalleryImagesLocal] = useState<string[]>(tripData.galleryImages || []);
+  const [coverImageIndex, setCoverImageIndexLocal] = useState<number | null>(tripData.coverImageIndex ?? null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-
-  // Cargar galería guardada del localStorage
+  
+  // Sincronizar con el store cuando cambien los datos (incluyendo cuando se cargan después del montaje)
   useEffect(() => {
-    const key = tripId ? `${STORAGE_KEY_GALLERY}_${tripId}` : STORAGE_KEY_GALLERY;
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      try {
-        const data = JSON.parse(stored);
-        setGalleryImages(data.galleryImages || []);
-        setCoverImageIndex(data.coverImageIndex ?? null);
-      } catch (error) {
-        console.error("Error al cargar galería del localStorage:", error);
+    // Si hay imágenes en el store y no coinciden con las locales, actualizar
+    if (tripData.galleryImages && tripData.galleryImages.length > 0) {
+      const storeStr = JSON.stringify(tripData.galleryImages);
+      const localStr = JSON.stringify(galleryImages);
+      if (storeStr !== localStr) {
+        console.log("🖼️ GalleryStep: Sincronizando imágenes desde el store", tripData.galleryImages.length);
+        setGalleryImagesLocal(tripData.galleryImages);
       }
     }
-  }, [tripId]);
-
-  // Guardar en localStorage automáticamente
-  useEffect(() => {
-    const data = {
-      galleryImages,
-      coverImageIndex,
-    };
     
-    // Guardar en ambas claves para asegurar persistencia
-    const keyWithTripId = tripId ? `${STORAGE_KEY_GALLERY}_${tripId}` : null;
-    const keyBase = STORAGE_KEY_GALLERY;
-    
-    if (keyWithTripId) {
-      localStorage.setItem(keyWithTripId, JSON.stringify(data));
+    // Sincronizar coverImageIndex
+    if (tripData.coverImageIndex !== null && tripData.coverImageIndex !== undefined) {
+      if (coverImageIndex !== tripData.coverImageIndex) {
+        console.log("🖼️ GalleryStep: Sincronizando coverImageIndex", tripData.coverImageIndex);
+        setCoverImageIndexLocal(tripData.coverImageIndex);
+      }
     }
-    localStorage.setItem(keyBase, JSON.stringify(data));
-  }, [galleryImages, coverImageIndex, tripId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripData.galleryImages, tripData.coverImageIndex]); // Ejecutar cuando cambien los datos del store
+
+  // Guardar en el store de Zustand automáticamente cuando cambien los datos locales
+  useEffect(() => {
+    // Usar setTimeout para evitar actualizaciones durante el render
+    const timeoutId = setTimeout(() => {
+      const storeStr = JSON.stringify(tripData.galleryImages || []);
+      const localStr = JSON.stringify(galleryImages);
+      // Solo actualizar si hay diferencias
+      if (storeStr !== localStr) {
+        setGalleryImages(galleryImages);
+      }
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [galleryImages, setGalleryImages, tripData.galleryImages]);
+
+  useEffect(() => {
+    // Usar setTimeout para evitar actualizaciones durante el render
+    const timeoutId = setTimeout(() => {
+      // Solo actualizar si hay diferencias
+      if (coverImageIndex !== (tripData.coverImageIndex ?? null)) {
+        setCoverImageIndex(coverImageIndex);
+      }
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [coverImageIndex, setCoverImageIndex, tripData.coverImageIndex]);
+  
+  // Funciones para actualizar el estado local (el store se actualizará automáticamente vía useEffect)
+  const updateGalleryImages = (images: string[] | ((prev: string[]) => string[])) => {
+    if (typeof images === "function") {
+      setGalleryImagesLocal(images);
+    } else {
+      setGalleryImagesLocal(images);
+    }
+  };
+  
+  const handleCoverImageIndexChange = (index: number | null) => {
+    setCoverImageIndexLocal(index);
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -71,11 +103,16 @@ export default function GalleryStep({ tripId }: GalleryStepProps) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
-        setGalleryImages((prev) => [...prev, base64String]);
-        // Si es la primera imagen, marcarla como cover
-        if (galleryImages.length === 0 && coverImageIndex === null) {
-          setCoverImageIndex(0);
-        }
+        updateGalleryImages((prev) => {
+          const newImages = [...prev, base64String];
+          // Si es la primera imagen, marcarla como cover
+          if (prev.length === 0 && coverImageIndex === null) {
+            setTimeout(() => {
+              handleCoverImageIndexChange(0);
+            }, 0);
+          }
+          return newImages;
+        });
       };
       reader.onerror = () => {
         toast.error(`Error al cargar ${file.name}`);
@@ -90,17 +127,19 @@ export default function GalleryStep({ tripId }: GalleryStepProps) {
   };
 
   const removeImage = (index: number) => {
-    setGalleryImages(galleryImages.filter((_, i) => i !== index));
+    const newImages = galleryImages.filter((_, i) => i !== index);
+    updateGalleryImages(newImages);
+    
     if (coverImageIndex === index) {
-      setCoverImageIndex(galleryImages.length > 1 ? 0 : null);
+      handleCoverImageIndexChange(newImages.length > 0 ? 0 : null);
     } else if (coverImageIndex !== null && coverImageIndex > index) {
-      setCoverImageIndex(coverImageIndex - 1);
+      handleCoverImageIndexChange(coverImageIndex - 1);
     }
     toast.success("Imagen eliminada");
   };
 
   const setAsCover = (index: number) => {
-    setCoverImageIndex(index);
+    handleCoverImageIndexChange(index);
     toast.success("Imagen de portada actualizada");
   };
 

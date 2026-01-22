@@ -32,9 +32,6 @@ export function Itinerary({ items }: ItineraryProps) {
           )
         })}
       </div>
-      <button className="text-primary font-bold hover:underline flex items-center gap-2">
-        Ver itinerario completo <ChevronDown className="size-4" />
-      </button>
     </section>
   )
 }
