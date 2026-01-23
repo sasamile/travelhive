@@ -15,7 +15,7 @@ interface UserData {
     name: string;
     email: string;
     emailVerified: boolean;
-    image: string | null;
+    image: string | null; // imagen del usuario avatar        
     createdAt: string;
     updatedAt: string;
     dniUser?: string;
@@ -63,7 +63,7 @@ export default function ProfilePage() {
       try {
         const response = await api.get<UserData>("/auth/me");
         setUserData(response.data);
-        
+
         // Inicializar formulario con datos existentes
         if (response.data.agencies?.[0]?.agency) {
           const agency = response.data.agencies[0].agency;
@@ -91,7 +91,7 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       const agencyId = userData.agencies[0].idAgency;
-      
+
       await api.put(`/agencies/${agencyId}`, {
         nameAgency: agencyName,
         email: publicEmail,
@@ -102,7 +102,7 @@ export default function ProfilePage() {
       });
 
       toast.success("Configuración guardada exitosamente");
-      
+
       // Recargar datos
       const response = await api.get<UserData>("/auth/me");
       setUserData(response.data);
@@ -116,7 +116,7 @@ export default function ProfilePage() {
 
   const handleDiscard = () => {
     if (!userData?.agencies?.[0]?.agency) return;
-    
+
     const agency = userData.agencies[0].agency;
     setAgencyName(agency.nameAgency || "");
     setPublicEmail(agency.email || "");
@@ -406,13 +406,12 @@ export default function ProfilePage() {
                     <FieldLabel>Verification Status</FieldLabel>
                     <FieldContent>
                       <div
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold w-fit ${
-                          approvalStatus === "APPROVED"
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold w-fit ${approvalStatus === "APPROVED"
                             ? "bg-emerald-50 text-emerald-700"
                             : approvalStatus === "PENDING"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-red-50 text-red-700"
-                        }`}
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-red-50 text-red-700"
+                          }`}
                       >
                         {approvalStatus}
                       </div>
