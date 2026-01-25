@@ -4,10 +4,51 @@ import Image from "next/image";
 import Link from "next/link";
 import { Compass, Globe, Menu, Tent, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import api from "@/lib/axios";
+
+interface UserData {
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    emailVerified: boolean;
+    image: string | null;
+    dniUser?: string;
+    phoneUser?: string;
+  };
+  agencies?: Array<{
+    idAgency: string;
+    role: string;
+    agency: {
+      idAgency: string;
+      nameAgency: string;
+    };
+  }>;
+}
 
 function CustomersNav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await api.get<UserData>("/auth/me");
+        setUserData(response.data);
+      } catch (error) {
+        // Usuario no autenticado - no hacer nada
+        console.log("Usuario no autenticado");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
@@ -24,6 +65,19 @@ function CustomersNav() {
       document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, [isMenuOpen]);
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/api/auth/sign-out");
+      localStorage.removeItem("auth_token");
+      router.push("/auth/login");
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      // Aún así redirigir al login
+      localStorage.removeItem("auth_token");
+      router.push("/auth/login");
+    }
+  };
 
   return (
     <div className="sticky top-0 z-50 border-b border-gray-100 bg-[#fdfdfc]/90 backdrop-blur-md dark:border-gray-800 dark:bg-[#1a1a1a]/90">
@@ -53,13 +107,19 @@ function CustomersNav() {
             >
               <Menu className="ml-1 h-5 w-5" />
               <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <Image
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4MtgtGN1XRKE62pJ2GG5K2xltR42VU79COD_WWzJWTnv0-6fKLZ-iEcuCAavWCQO-uoZY0zE_L44tvMmowU6LAEQtee7mUDXKtKzMAdSRPG78nN0C-Q2ngy6azgH0s3dXnKboHP35W2bKaxtIUevaMHkEmk14ftaiQqchz30ZU3BNANKiRZbI5kwmvWxgmJSHRwFVvdMuPBRF0B782G9FZe42KLRTYCgyZMe7l_3dhELWFaNhTyadyky2a4N9z8uWYrKz8pEL_edi"
-                  alt="Avatar del usuario"
-                  width={32}
-                  height={32}
-                  className="h-full w-full object-cover"
-                />
+                {userData?.user?.image ? (
+                  <Image
+                    src={userData.user.image}
+                    alt={userData.user.name || "Avatar del usuario"}
+                    width={32}
+                    height={32}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-primary text-white text-xs font-bold">
+                    {userData?.user?.name?.charAt(0).toUpperCase() || "U"}
+                  </div>
+                )}
               </div>
             </button>
             {isMenuOpen && (
@@ -83,6 +143,7 @@ function CustomersNav() {
                   Mis viajes
                 </Link>
                 <button
+                  onClick={handleLogout}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 font-medium text-[#121717] hover:bg-gray-50 dark:text-white dark:hover:bg-gray-800"
                   type="button"
                   role="menuitem"

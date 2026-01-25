@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTripStore } from "@/store/tripStore";
 import RichTextEditor from "@/components/ui/rich-text-editor";
 import { DateRange } from "react-day-picker";
+import { gsap } from "gsap";
 import CitySelector from "./CitySelector";
 import DateRangeSection from "./DateRangeSection";
 import PriceAndPersonsSection from "./PriceAndPersonsSection";
@@ -35,6 +36,8 @@ export default function BasicInfoStep({ tripId, onTripCreated, initialData }: Ba
   const tripData = useTripStore((state) => state.tripData);
   const setBasicInfo = useTripStore((state) => state.setBasicInfo);
   const setRoutePoints = useTripStore((state) => state.setRoutePoints);
+  const formRef = useRef<HTMLFormElement>(null);
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Función para convertir fechas string a DateRange
   const parseDateRange = (startDateStr?: string, endDateStr?: string): DateRange | undefined => {
@@ -202,77 +205,151 @@ export default function BasicInfoStep({ tripId, onTripCreated, initialData }: Ba
     }
   }, [formData.latitude, formData.longitude]);
 
+  // Animaciones GSAP cuando el componente se monta
+  useEffect(() => {
+    if (!formRef.current) return;
+
+    const ctx = gsap.context(() => {
+      // Animación de entrada para cada sección
+      const sections = formRef.current?.querySelectorAll('[data-section]');
+      if (sections) {
+        gsap.fromTo(sections, 
+          {
+            opacity: 0,
+            y: 20,
+            scale: 0.95
+          },
+          {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.5,
+            stagger: 0.1,
+            ease: "back.out(1.2)"
+          }
+        );
+      }
+    }, formRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
-      <div className="px-8 py-6 border-b border-neutral-100 bg-white/90 backdrop-blur sticky top-0 z-20">
-        <h2 className="text-3xl font-caveat font-bold tracking-tight text-slate-900">Información Básica</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Comencemos con los detalles principales de tu expedición. Esta información se mostrará como encabezado principal de la página de tu viaje.
+    <div className="flex-1 flex flex-col bg-white h-full">
+      <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-neutral-100 bg-white sticky top-0 z-30 shadow-sm">
+        <h2 className="text-xl sm:text-2xl font-caveat font-bold tracking-tight text-slate-900">
+          Información Básica
+        </h2>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          Detalles principales de tu expedición
         </p>
       </div>
-      <div className="flex-1 overflow-y-auto p-12 w-full">
-        <form className="space-y-10" onSubmit={(e) => { e.preventDefault(); }}>
-          <CitySelector
-            value={formData.idCity}
-            onChange={(idCity) => handleInputChange("idCity", idCity)}
-          />
-
-          <div className="space-y-3">
-            <label className="text-sm font-semibold text-slate-700 block">Título del Viaje</label>
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 w-full min-h-0">
+        <form ref={formRef} className="space-y-4 sm:space-y-6" onSubmit={(e) => { e.preventDefault(); }}>
+          <div data-section className="space-y-2 sm:space-y-3 transform transition-all">
+            <label className="text-xs sm:text-sm font-semibold text-slate-700 block">
+              Título del Viaje
+            </label>
             <input
-              className="w-full h-12 px-4 border border-neutral-200 rounded-xl text-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
+              className="w-full h-11 sm:h-12 px-3 sm:px-4 border border-neutral-200 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-400 bg-white"
               placeholder="Ej: Patagonia: La Última Frontera"
               type="text"
               value={formData.title}
               onChange={(e) => handleInputChange("title", e.target.value)}
               required
             />
-            <p className="text-xs text-slate-400 italic">Intenta hacerlo evocativo y descriptivo.</p>
+            <p className="text-[10px] sm:text-xs text-slate-500">
+              Intenta hacerlo evocativo y descriptivo
+            </p>
           </div>
 
-          <DateRangeSection
-            startDate={tripData.startDate}
-            endDate={tripData.endDate}
-            durationDays={formData.durationDays}
-            durationNights={formData.durationNights}
-            onDateRangeChange={handleDateRangeChange}
-          />
+          {/* Grid responsive: 1 columna en móvil, 3 en desktop */}
+          <div data-section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 transform transition-all">
+            <div>
+              <CitySelector
+                value={formData.idCity}
+                onChange={(idCity) => handleInputChange("idCity", idCity)}
+              />
+            </div>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 block">Tipo de Precio</label>
+              <div className="relative">
+                <select
+                  className="w-full h-11 sm:h-12 px-3 sm:px-4 border border-neutral-200 rounded-lg text-sm sm:text-base appearance-none bg-white focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all"
+                  value={formData.priceType}
+                  onChange={(e) => handleInputChange("priceType", e.target.value as "adults" | "children" | "both")}
+                >
+                  <option value="adults">Solo Adultos</option>
+                  <option value="children">Solo Niños</option>
+                  <option value="both">Familia (Adultos y Niños)</option>
+                </select>
+                <span className="absolute right-2 sm:right-3 top-2.5 sm:top-3.5 text-slate-400 pointer-events-none text-xs sm:text-sm">⌄</span>
+              </div>
+            </div>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 block">Categoría</label>
+              <div className="relative">
+                <select
+                  className="w-full h-11 sm:h-12 px-3 sm:px-4 border border-neutral-200 rounded-lg text-sm sm:text-base appearance-none bg-white focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all"
+                  value={formData.category}
+                  onChange={(e) => handleInputChange("category", e.target.value)}
+                >
+                  <option value="Adventure">Aventura</option>
+                  <option value="Luxury">Lujo</option>
+                  <option value="Cultural">Cultural</option>
+                  <option value="Wellness">Bienestar</option>
+                  <option value="Wildlife">Vida Silvestre</option>
+                </select>
+                <span className="absolute right-2 sm:right-3 top-2.5 sm:top-3.5 text-slate-400 pointer-events-none text-xs sm:text-sm">⌄</span>
+              </div>
+            </div>
+          </div>
 
-          <PriceAndPersonsSection
-            price={formData.price}
-            currency={formData.currency}
-            maxPersons={formData.maxPersons}
-            onPriceChange={(price) => handleInputChange("price", price)}
-            onCurrencyChange={(currency) => handleInputChange("currency", currency)}
-            onMaxPersonsChange={(maxPersons) => handleInputChange("maxPersons", maxPersons)}
-          />
+          <div data-section className="transform transition-all">
+            <DateRangeSection
+              startDate={tripData.startDate}
+              endDate={tripData.endDate}
+              durationDays={formData.durationDays}
+              durationNights={formData.durationNights}
+              onDateRangeChange={handleDateRangeChange}
+            />
+          </div>
 
-          <PriceTypeAndCategorySection
-            priceType={formData.priceType}
-            category={formData.category}
-            onPriceTypeChange={(priceType) => handleInputChange("priceType", priceType)}
-            onCategoryChange={(category) => handleInputChange("category", category)}
-          />
+          {/* Grid responsive: 1 columna en móvil, 2 en desktop */}
+          <div data-section className="w-full transform transition-all">
+            <PriceAndPersonsSection
+              price={formData.price}
+              currency={formData.currency}
+              maxPersons={formData.maxPersons}
+              onPriceChange={(price) => handleInputChange("price", price)}
+              onCurrencyChange={(currency) => handleInputChange("currency", currency)}
+              onMaxPersonsChange={(maxPersons) => handleInputChange("maxPersons", maxPersons)}
+            />
+          </div>
 
-          <RoutePointsSection
-            routePoints={tripData.routePoints || []}
-            onRoutePointsChange={setRoutePoints}
-            onLocationSelect={handleLocationSelect}
-            onDestinationRegionChange={(region) => handleInputChange("destinationRegion", region)}
-            onCoordinatesChange={(lat, lng) => {
-              setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
-            }}
-          />
+          <div data-section className="transform transition-all">
+            <RoutePointsSection
+              routePoints={tripData.routePoints || []}
+              onRoutePointsChange={setRoutePoints}
+              onLocationSelect={handleLocationSelect}
+              onDestinationRegionChange={(region) => handleInputChange("destinationRegion", region)}
+              onCoordinatesChange={(lat, lng) => {
+                setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+              }}
+            />
+          </div>
 
-          <div className="space-y-3">
-            <label className="text-sm font-semibold text-slate-700 block">Descripción del Viaje</label>
+          <div data-section className="space-y-3 transform transition-all">
+            <label className="text-sm font-semibold text-slate-700 block">
+              Descripción del Viaje
+            </label>
             <RichTextEditor
               value={formData.description}
               onChange={(value) => handleInputChange("description", value)}
               placeholder="Describe el alma de este viaje..."
               className="w-full"
             />
-            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest text-right">
+            <p className="text-xs text-slate-500 text-right">
               Recomendado: 300-500 palabras
             </p>
           </div>

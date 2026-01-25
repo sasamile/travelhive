@@ -94,12 +94,13 @@ export default function PreviewPage() {
     fetchAgencyInfo();
   }, []);
 
-  // Redirigir al formulario de edición si estamos editando pero no hay datos
+  // Redirigir al dashboard del agente si estamos editando pero no hay datos
   // IMPORTANTE: Este useEffect debe estar ANTES de cualquier return condicional
   // No redirigir si estamos en proceso de publicación
   useEffect(() => {
     if (isEditing && (!tripData || !tripData.title) && !loadingTrip && !publishing) {
-      router.push(`/new?edit=${tripIdParam}`);
+      // Redirigir al dashboard del agente donde pueden abrir el modal de edición
+      router.push(`/agent/expeditions`);
     }
   }, [isEditing, tripData, loadingTrip, tripIdParam, router, publishing]);
 
@@ -232,12 +233,8 @@ export default function PreviewPage() {
         console.error("Error al cargar datos del trip en preview:", error);
         console.error("Response completa:", error.response?.data);
         toast.error("Error al cargar los datos del viaje");
-        // Si no se puede cargar, redirigir al formulario de edición
-        if (isEditing) {
-          router.push(`/new?edit=${tripIdParam}`);
-        } else {
-          router.push("/new");
-        }
+        // Si no se puede cargar, redirigir al dashboard del agente
+        router.push("/agent/expeditions");
       } finally {
         setLoadingTrip(false);
       }

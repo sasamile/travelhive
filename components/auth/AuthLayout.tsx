@@ -10,11 +10,15 @@ function AuthLayout({
   role = "user",
   userRole = () => {},
   className = "",
+  onGoogleClick,
+  googleLoading = false,
 }: {
   children: React.ReactNode;
   role?: "user" | "host";
   userRole?: React.Dispatch<React.SetStateAction<"user" | "host">>;
   className?: string;
+  onGoogleClick?: () => void;
+  googleLoading?: boolean;
 }) {
   const pathname = usePathname();
   const isLoginPage = pathname?.includes("/login");
@@ -93,18 +97,17 @@ function AuthLayout({
             <>
               <div className="flex flex-col gap-3">
                 <Button
-                  className="flex items-center justify-center gap-3 w-full h-12 px-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[#121717] dark:text-white text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  onClick={() => {
-                    // Backend no implementado aún
-                    console.log("Google Auth para viajero no implementado");
-                  }}
-                  disabled
+                  className="flex items-center justify-center gap-3 w-full h-12 px-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[#121717] dark:text-white text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={onGoogleClick}
+                  disabled={!onGoogleClick || googleLoading}
                 >
                   <Image src="/google.svg" alt="Google" width={20} height={20} />
                   <span className="truncate">
-                    {pathname?.includes("/register")
-                      ? "Registrarse con Google"
-                      : "Continuar con Google"}
+                    {googleLoading
+                      ? "Cargando..."
+                      : pathname?.includes("/register")
+                        ? "Registrarse con Google"
+                        : "Continuar con Google"}
                   </span>
                 </Button>
               </div>

@@ -1,11 +1,29 @@
+"use client";
+
 import { LogOut, Shield, User } from 'lucide-react'
 import type { NavItem } from './data'
+import { useRouter } from 'next/navigation'
+import api from '@/lib/axios'
 
 type AgentSidebarProps = {
   navItems: NavItem[]
 }
 
 export function AgentSidebar({ navItems }: AgentSidebarProps) {
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/api/auth/sign-out");
+      localStorage.removeItem("auth_token");
+      router.push("/auth/login");
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      // Aún así redirigir al login
+      localStorage.removeItem("auth_token");
+      router.push("/auth/login");
+    }
+  };
   return (
     <aside className="w-72 bg-white dark:bg-[#242424] border-r border-gray-100 dark:border-gray-800 flex flex-col h-full shrink-0">
       <div className="p-8">
@@ -60,10 +78,13 @@ export function AgentSidebar({ navItems }: AgentSidebarProps) {
           <User className="size-4" />
           <span className="text-sm font-medium">Mi Perfil</span>
         </a>
-        <a className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-red-50 text-red-400 transition-all" href="#">
+        <button 
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 px-4 py-2 rounded-lg hover:bg-red-50 text-red-400 transition-all"
+        >
           <LogOut className="size-4" />
           <span className="text-sm font-medium">Cerrar sesión</span>
-        </a>
+        </button>
       </div>
     </aside>
   )

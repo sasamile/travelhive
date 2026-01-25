@@ -140,7 +140,7 @@ export function AgentLayoutSidebar() {
 
   const handleLogout = async () => {
     try {
-      await api.post("/auth/logout");
+      await api.post("/api/auth/sign-out");
       localStorage.removeItem("auth_token");
       router.push("/auth/login");
     } catch (error) {
@@ -158,7 +158,7 @@ export function AgentLayoutSidebar() {
   const userRole = userData?.agencies?.[0]?.role === "admin" ? "Administrador" : "Organizador";
 
   return (
-    <aside className="w-64 border-r border-zinc-200 flex flex-col fixed h-full z-50 bg-white">
+    <aside className="w-fit border-r border-zinc-200 flex flex-col fixed h-full z-50 bg-white">
       <div className="px-6 h-20 flex items-center border-b border-zinc-200">
         <Link href="/agent">
           <div className="font-caveat text-2xl font-bold flex items-center gap-2">

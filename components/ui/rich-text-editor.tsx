@@ -71,41 +71,85 @@ export default function RichTextEditor({
   };
 
   const execCommand = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    if (editorRef.current) {
-      editorRef.current.focus();
-      onChange(editorRef.current.innerHTML);
-    }
+    if (!editorRef.current) return;
+    
+    // Asegurar que el editor tenga focus antes de ejecutar el comando
+    editorRef.current.focus();
+    
+    // Pequeño delay para asegurar que el focus esté establecido
+    requestAnimationFrame(() => {
+      try {
+        // Ejecutar el comando
+        const success = document.execCommand(command, false, value);
+        
+        if (!success && command === "insertUnorderedList") {
+          // Si execCommand falla, crear la lista manualmente
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const ul = document.createElement("ul");
+            const li = document.createElement("li");
+            
+            // Si hay texto seleccionado, usarlo
+            if (range.toString().trim()) {
+              li.textContent = range.toString();
+              range.deleteContents();
+            } else {
+              li.textContent = "\u200B"; // Zero-width space para que la lista tenga contenido
+            }
+            
+            ul.appendChild(li);
+            range.insertNode(ul);
+            
+            // Colocar el cursor dentro del li
+            const newRange = document.createRange();
+            newRange.setStart(li, 0);
+            newRange.setEnd(li, 0);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+          }
+        }
+        
+        // Actualizar el contenido después de ejecutar el comando
+        if (editorRef.current) {
+          onChange(editorRef.current.innerHTML);
+          // Mantener el focus
+          editorRef.current.focus();
+        }
+      } catch (error) {
+        console.error("Error ejecutando comando:", error);
+      }
+    });
   };
 
   return (
-    <div className={`border border-neutral-200 rounded-2xl overflow-hidden bg-white ${className}`}>
+    <div className={`border border-neutral-200 rounded-lg overflow-hidden bg-white focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all ${className}`}>
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b border-neutral-200 bg-neutral-50">
+      <div className="flex items-center gap-1 p-1.5 border-b border-neutral-200 bg-neutral-50/50">
         <button
           type="button"
-          className="p-2 hover:bg-neutral-200 rounded transition-colors"
+          className="p-1.5 hover:bg-neutral-200 rounded transition-colors"
           onClick={() => execCommand("bold")}
           title="Negrita"
         >
-          <Bold className="w-4 h-4 text-slate-700" />
+          <Bold className="w-3.5 h-3.5 text-slate-600" />
         </button>
         <button
           type="button"
-          className="p-2 hover:bg-neutral-200 rounded transition-colors"
+          className="p-1.5 hover:bg-neutral-200 rounded transition-colors"
           onClick={() => execCommand("italic")}
           title="Cursiva"
         >
-          <Italic className="w-4 h-4 text-slate-700" />
+          <Italic className="w-3.5 h-3.5 text-slate-600" />
         </button>
-        <div className="w-px h-6 bg-neutral-300 mx-1" />
+        <div className="w-px h-5 bg-neutral-300 mx-0.5" />
         <button
           type="button"
-          className="p-2 hover:bg-neutral-200 rounded transition-colors"
+          className="p-1.5 hover:bg-neutral-200 rounded transition-colors"
           onClick={() => execCommand("insertUnorderedList")}
           title="Lista con viñetas"
         >
-          <List className="w-4 h-4 text-slate-700" />
+          <List className="w-3.5 h-3.5 text-slate-600" />
         </button>
       </div>
       
@@ -117,9 +161,7 @@ export default function RichTextEditor({
           onInput={handleInput}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          className={`min-h-[180px] p-4 text-sm focus:outline-none relative z-10 ${
-            isFocused ? "ring-2 ring-indigo-500/20" : ""
-          }`}
+          className={`min-h-[150px] p-3 text-sm focus:outline-none relative z-10 rich-text-editor`}
           style={{
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
@@ -129,7 +171,7 @@ export default function RichTextEditor({
         {/* Placeholder overlay - solo se muestra cuando está vacío y no tiene focus */}
         {isEmpty && isMounted && !isFocused && (
           <div
-            className="absolute top-4 left-4 text-slate-400 pointer-events-none z-0 text-sm"
+            className="absolute top-3 left-3 text-slate-400 pointer-events-none z-0 text-sm"
             style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
           >
             {placeholder}

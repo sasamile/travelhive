@@ -10,11 +10,12 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { AgentHeader } from "@/components/agent/AgentHeader";
+import NewTripModal from "@/components/agent/NewTripModal";
 
 function Page() {
-  const router = useRouter();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <main className="flex flex-col min-h-screen">
@@ -24,8 +25,8 @@ function Page() {
         showNotifications
         actions={
           <button 
-            onClick={() => router.push("/new")}
-            className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-all hover:scale-105 active:scale-95 shadow-lg"
           >
             <Plus className="size-4" />
             Crear Viaje
@@ -109,14 +110,14 @@ function Page() {
                     </h3>
                   </div>
                   <p className="text-sm leading-relaxed text-zinc-600">
-                    Las tendencias de reservas aumentaron{" "}
-                    <span className="font-bold text-zinc-900">22%</span> para expediciones Q4.
-                    Sugerimos abrir 2 cupos más para Patagonia Ridge.
+                    Tienes <span className="font-bold text-zinc-900">12 nuevas reservas</span> esta semana.
+                    Tu experiencia más popular es Patagonia Ridge con{" "}
+                    <span className="font-bold text-zinc-900">47 reservas</span> este mes.
                   </p>
                 </div>
                 <div className="mt-4 pt-4 border-t border-border-muted">
                   <button className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
-                    Aplicar sugerencia{" "}
+                    Ver detalles{" "}
                     <ArrowRight className="size-3.5" aria-hidden="true" />
                   </button>
                 </div>
@@ -143,36 +144,36 @@ function Page() {
               <div className="bg-white border border-border-muted p-6 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                 <div className="flex justify-between items-start mb-2">
                     <p className="text-xs font-medium text-text-muted">
-                      Ocupación Promedio
+                      Reservas del Mes
                     </p>
                   <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">
-                    Estable
+                    +18%
                   </span>
                 </div>
-                <h4 className="text-2xl font-semibold tracking-tight">88,2%</h4>
+                <h4 className="text-2xl font-semibold tracking-tight">127</h4>
                     <p className="text-[10px] text-text-muted mt-4">
-                      Promedio en 14 ubicaciones
+                      vs. 108 reservas el mes pasado
                     </p>
               </div>
               <div className="bg-white border border-border-muted p-6 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                 <div className="flex justify-between items-start mb-2">
                     <p className="text-xs font-medium text-text-muted">
-                      Tiempo de Respuesta
+                      Calificación Promedio
                     </p>
                   <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-bold">
-                    -2m
+                    Excelente
                   </span>
                 </div>
                 <h4 className="text-2xl font-semibold tracking-tight">
-                  14 mins
+                  4.8
                 </h4>
                     <p className="text-[10px] text-text-muted mt-4">
-                      Top 5% de todos los creadores
+                      Basado en 234 reseñas
                     </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
+            <div className="grid grid-cols-1  gap-8">
               <div className="xl:col-span-2 space-y-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-caveat text-2xl font-bold">
@@ -287,50 +288,14 @@ function Page() {
                 </div>
               </div>
 
-              <div className="xl:col-span-3 h-[500px] bg-zinc-50 rounded-xl border border-border-muted overflow-hidden relative map-terrain shadow-inner">
-                <div className="absolute top-[35%] left-[25%] group cursor-pointer">
-                  <div className="size-3 bg-primary rounded-full ring-4 ring-primary/20"></div>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-zinc-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap">
-                    Patagonia · $42k Revenue
-                  </div>
-                </div>
-                <div className="absolute top-[42%] left-[48%] group cursor-pointer">
-                  <div className="size-3 bg-primary rounded-full ring-4 ring-primary/20"></div>
-                </div>
-                <div className="absolute top-[38%] left-[75%] group cursor-pointer">
-                  <div className="size-3 bg-primary rounded-full ring-4 ring-primary/20"></div>
-                </div>
-                <div className="absolute bottom-4 right-4 flex flex-col gap-1 bg-white p-1 rounded-shadcn border border-border-muted shadow-sm">
-                  <button className="size-8 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded">
-                    <Plus className="size-4" aria-hidden="true" />
-                  </button>
-                  <div className="h-px bg-border-muted mx-1"></div>
-                  <button className="size-8 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded">
-                    <Minus className="size-4" aria-hidden="true" />
-                  </button>
-                </div>
-                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur p-4 rounded-xl border border-border-muted shadow-sm max-w-[180px]">
-                  <h6 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
-                    Flota Activa
-                  </h6>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-zinc-600">Activo</span>
-                      <span className="font-bold">8</span>
-                    </div>
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-zinc-600">Pendiente</span>
-                      <span className="font-bold">4</span>
-                    </div>
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-zinc-600">Archivado</span>
-                      <span className="font-bold">2</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
+
+      {/* Modal de creación de viaje */}
+      <NewTripModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+      />
     </main>
   );
 }

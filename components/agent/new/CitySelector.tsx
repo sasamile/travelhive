@@ -57,43 +57,65 @@ export default function CitySelector({ value, onChange }: CitySelectorProps) {
   const selectedCity = cities.find(city => city.idCity === value);
 
   return (
-    <div className="space-y-3">
-      <label className="text-sm font-semibold text-slate-700 block">Ciudad *</label>
+    <div className="space-y-2 sm:space-y-3">
+      <label className="text-xs sm:text-sm font-semibold text-slate-700 block">Ciudad *</label>
       <div className="relative w-full">
-        <Popover open={cityPopoverOpen} onOpenChange={setCityPopoverOpen}>
+        <Popover open={cityPopoverOpen} onOpenChange={setCityPopoverOpen} modal={false}>
           <PopoverTrigger asChild>
             <button
               type="button"
               role="combobox"
               aria-expanded={cityPopoverOpen}
-              className="w-full h-12 px-4 border border-neutral-200 rounded-xl text-sm bg-white hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={(e) => {
+                e.preventDefault();
+                if (!loadingCities) {
+                  setCityPopoverOpen(!cityPopoverOpen);
+                }
+              }}
+              className="w-full h-11 sm:h-12 px-3 sm:px-4 border border-neutral-200 rounded-lg text-sm sm:text-base bg-white hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loadingCities}
             >
-              <span className={cn("text-left", !selectedCity && "text-slate-400")}>
+              <span className={cn("text-left flex-1", !selectedCity && "text-slate-400")}>
                 {selectedCity ? selectedCity.nameCity : "Selecciona una ciudad..."}
               </span>
               {loadingCities ? (
-                <div className="size-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="size-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0"></div>
               ) : (
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                <ChevronsUpDown className={cn(
+                  "ml-2 h-4 w-4 shrink-0 transition-transform",
+                  cityPopoverOpen ? "opacity-100 rotate-180" : "opacity-50"
+                )} />
               )}
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start" sideOffset={4}>
-            <div className="flex items-center border-b px-3">
-              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+          <PopoverContent 
+            className="w-[calc(100vw-2rem)] sm:w-(--radix-popover-trigger-width) p-0 z-200 bg-white border border-slate-200 shadow-lg max-h-[60vh]" 
+            align="start" 
+            sideOffset={4}
+            onOpenAutoFocus={(e) => {
+              // Prevenir el auto-focus para que el input de búsqueda funcione
+              e.preventDefault();
+            }}
+          >
+            <div className="flex items-center border-b border-slate-200 px-3">
+              <Search className="mr-2 h-4 w-4 shrink-0 text-slate-400" />
               <input
                 type="text"
                 placeholder="Buscar ciudad..."
                 value={citySearchQuery}
                 onChange={(e) => setCitySearchQuery(e.target.value)}
                 className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+                autoFocus
               />
             </div>
             <div className="max-h-[300px] overflow-y-auto">
-              {filteredCities.length === 0 ? (
+              {loadingCities ? (
                 <div className="py-6 text-center text-sm text-slate-500">
-                  No se encontraron ciudades.
+                  Cargando ciudades...
+                </div>
+              ) : filteredCities.length === 0 ? (
+                <div className="py-6 text-center text-sm text-slate-500">
+                  {citySearchQuery ? "No se encontraron ciudades." : "No hay ciudades disponibles."}
                 </div>
               ) : (
                 <div className="p-1">
@@ -107,17 +129,19 @@ export default function CitySelector({ value, onChange }: CitySelectorProps) {
                         setCitySearchQuery("");
                       }}
                       className={cn(
-                        "relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-slate-100 focus:bg-slate-100",
-                        value === city.idCity && "bg-slate-100"
+                        "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-slate-100 focus:bg-slate-100 transition-colors",
+                        value === city.idCity && "bg-indigo-50 hover:bg-indigo-100"
                       )}
                     >
                       <Check
                         className={cn(
-                          "mr-2 h-4 w-4",
-                          value === city.idCity ? "opacity-100" : "opacity-0"
+                          "mr-2 h-4 w-4 shrink-0",
+                          value === city.idCity ? "opacity-100 text-indigo-600" : "opacity-0"
                         )}
                       />
-                      {city.nameCity}
+                      <span className={cn(value === city.idCity && "font-medium text-indigo-900")}>
+                        {city.nameCity}
+                      </span>
                     </button>
                   ))}
                 </div>

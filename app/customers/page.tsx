@@ -1,11 +1,54 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import CategoriesScroller from "@/components/customers/CategoriesScroller";
 import CustomersFooter from "@/components/customers/CustomersFooter";
 import CustomersNav from "@/components/customers/CustomersNav";
 import InspirationGrid from "@/components/customers/InspirationGrid";
 import SearchBar from "@/components/customers/SearchBar";
 import { ChevronRight } from "lucide-react";
+import api from "@/lib/axios";
+
+interface UserData {
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    emailVerified: boolean;
+    image: string | null;
+    dniUser?: string;
+    phoneUser?: string;
+  };
+  agencies?: Array<{
+    idAgency: string;
+    role: string;
+    agency: {
+      idAgency: string;
+      nameAgency: string;
+    };
+  }>;
+}
 
 function CustomersPage() {
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await api.get<UserData>("/auth/me");
+        setUserData(response.data);
+      } catch (error) {
+        // Usuario no autenticado o error - no hacer nada, la página es pública
+        console.log("Usuario no autenticado o error al cargar sesión");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
   return (
     <div
       className={` bg-[#fdfdfc] text-[#4a4a4a] dark:bg-[#1a1a1a] dark:text-gray-200`}

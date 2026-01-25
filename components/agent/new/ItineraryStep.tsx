@@ -220,25 +220,25 @@ export default function ItineraryStep({ tripId }: ItineraryStepProps) {
 
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
-      <div className="px-8 py-6 flex justify-between items-center border-b border-neutral-100 bg-white/90 backdrop-blur sticky top-0 z-20">
+    <div className="flex-1 flex flex-col bg-white h-full">
+      <div className="px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 border-b border-neutral-100 bg-white sticky top-0 z-30 shadow-sm">
         <div>
-          <h2 className="text-3xl font-caveat font-bold tracking-tight text-slate-900">
+          <h2 className="text-xl sm:text-2xl font-caveat font-bold tracking-tight text-slate-900">
             Planificación del Viaje
           </h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Organiza cada día del viaje con actividades y detalles
           </p>
         </div>
         <button
           onClick={addDay}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-neutral-50 rounded-lg border border-neutral-200 transition-colors"
+          className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 hover:bg-neutral-50 rounded-lg border border-neutral-200 transition-colors w-full sm:w-auto justify-center"
         >
-          <Plus className="size-4" />
+          <Plus className="size-3.5 sm:size-4" />
           Agregar Día
         </button>
       </div>
-      <div className={`flex-1 overflow-y-auto p-8 relative ${days.length > 0 ? 'itinerary-line' : ''}`}>
+      <div className={`flex-1 overflow-y-auto p-4 sm:p-8 relative min-h-0 ${days.length > 0 ? 'itinerary-line' : ''}`}>
         {days.length > 0 && (
           <style jsx>{`
             .itinerary-line::before {

@@ -235,14 +235,14 @@ export default function RoutePointsSection({
   }, []);
 
   return (
-    <div className="space-y-3">
-      <label className="text-sm font-semibold text-slate-700 block">Ruta del Viaje</label>
-      <div className="grid grid-cols-5 gap-4">
-        <div className="col-span-2 space-y-4">
+    <div className="space-y-2 sm:space-y-3">
+      <label className="text-xs sm:text-sm font-semibold text-slate-700 block">Ruta del Viaje</label>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-2 space-y-3 sm:space-y-4">
           <div className="relative">
             <span className="absolute left-3 top-2.5 text-slate-400">📍</span>
             <input
-              className="w-full h-11 pl-10 pr-4 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              className="w-full h-11 sm:h-12 pl-9 sm:pl-10 pr-3 sm:pr-4 border border-neutral-200 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all bg-white"
               placeholder="Buscar y agregar destino..."
               type="text"
               value={locationInput}
@@ -324,7 +324,7 @@ export default function RoutePointsSection({
           )}
         </div>
 
-        <div className="col-span-3 h-80 rounded-2xl border border-neutral-200 overflow-hidden relative shadow-sm bg-slate-100" style={{ height: '320px' }}>
+        <div className="lg:col-span-3 h-64 sm:h-80 rounded-xl sm:rounded-2xl border border-neutral-200 overflow-hidden relative shadow-sm bg-slate-100" style={{ height: '320px' }}>
           <MemoizedInteractiveMapComponent
             routePoints={routePoints}
             onMapClick={handleMapClick}

@@ -37,7 +37,7 @@ const publicRoutes = [
 
 // Rutas que requieren autenticación pero son específicas
 const protectedRoutes = {
-  agent: ["/agent", "/new"],
+  agent: ["/agent"],
   customer: ["/customers/viajes"],
 };
 
@@ -65,7 +65,12 @@ function hasAccess(pathname: string, userRole: UserRole | null): boolean {
   }
 
   // Rutas de agente/agencia (admin también puede acceder)
-  if (pathname.startsWith("/agent") || pathname.startsWith("/new")) {
+  if (pathname.startsWith("/agent")) {
+    return userRole === "agent" || userRole === "agency" || userRole === "admin";
+  }
+  
+  // Ruta de preview (solo para agentes)
+  if (pathname.startsWith("/new/preview")) {
     return userRole === "agent" || userRole === "agency" || userRole === "admin";
   }
 

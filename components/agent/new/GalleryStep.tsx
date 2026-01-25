@@ -144,12 +144,12 @@ export default function GalleryStep({ tripId }: GalleryStepProps) {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
-      <div className="px-8 py-6 border-b border-neutral-100 bg-white/90 backdrop-blur sticky top-0 z-20">
-        <h2 className="font-caveat text-4xl text-slate-900">Galería de Medios</h2>
-        <p className="text-sm text-slate-500 mt-1">Gestiona fotos del viaje para tus clientes.</p>
+    <div className="flex-1 flex flex-col bg-white h-full">
+      <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-neutral-100 bg-white sticky top-0 z-30 shadow-sm">
+        <h2 className="text-xl sm:text-2xl font-caveat font-bold tracking-tight text-slate-900">Galería de Medios</h2>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">Gestiona fotos del viaje para tus clientes.</p>
       </div>
-      <div className="flex-1 overflow-y-auto p-8 max-w-6xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8 max-w-6xl mx-auto w-full min-h-0">
         <div className="mb-12">
           <input
             ref={imageInputRef}
@@ -180,7 +180,7 @@ export default function GalleryStep({ tripId }: GalleryStepProps) {
                 Fotos del Viaje <span className="text-sm font-normal text-slate-400 ml-2">({galleryImages.length} foto{galleryImages.length !== 1 ? "s" : ""})</span>
               </h3>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
               {galleryImages.map((image, index) => (
                 <div
                   key={index}
