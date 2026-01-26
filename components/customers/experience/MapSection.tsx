@@ -1,209 +1,250 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useTripStore } from '@/store/tripStore';
+import { Map as MapComponent, MapMarker, MapControls, MarkerContent, MapRoute, useMap } from '@/components/ui/map';
+import type { RoutePoint } from '@/types/trips';
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
+type RoutePointWithCoords = {
+  lat: number;
+  lng: number;
+  name?: string;
+  order?: number;
+} | {
+  latitude: number;
+  longitude: number;
+  name?: string;
+  order?: number;
+};
 
-// Extender window para incluir google (usar la misma declaración que BasicInfoStep.tsx)
-declare global {
-  interface Window {
-    google?: {
-      maps: {
-        Map: new (element: HTMLElement | null, opts?: any) => any;
-        Marker: new (opts?: any) => any;
-        DirectionsService: new () => any;
-        DirectionsRenderer: new (opts?: any) => any;
-        Polyline: new (opts?: any) => any;
-        LatLng: new (lat: number, lng: number) => any;
-        LatLngBounds: new () => any;
-        Geocoder: new () => any;
-        TravelMode: { DRIVING: string };
-        DirectionsStatus: { OK: string };
-        GeocoderStatus: { OK: string };
-        places: {
-          AutocompleteService: new () => any;
-          PlacesService: new (attrContainer: HTMLDivElement | any) => any;
-          PlacesServiceStatus: { OK: string };
-        };
-        SymbolPath: {
-          CIRCLE: any;
-        };
-      };
-    };
-    gm_authFailure?: () => void;
-  }
+type MapSectionProps = {
+  routePoints?: RoutePointWithCoords[];
+  destinationRegion?: string | null;
+};
+
+function FitRouteBounds({
+  coordinates,
+}: {
+  coordinates: [number, number][];
+}) {
+  const { map, isLoaded } = useMap();
+
+  useEffect(() => {
+    if (!isLoaded || !map) return;
+    if (coordinates.length < 2) return;
+
+    // Build bounds from route coordinates
+    let minLng = Infinity;
+    let minLat = Infinity;
+    let maxLng = -Infinity;
+    let maxLat = -Infinity;
+
+    for (const [lng, lat] of coordinates) {
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+      minLng = Math.min(minLng, lng);
+      minLat = Math.min(minLat, lat);
+      maxLng = Math.max(maxLng, lng);
+      maxLat = Math.max(maxLat, lat);
+    }
+
+    if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) return;
+
+    try {
+      map.fitBounds(
+        [
+          [minLng, minLat],
+          [maxLng, maxLat],
+        ],
+        {
+          padding: 60,
+          duration: 800,
+          maxZoom: 14,
+        }
+      );
+    } catch {
+      // ignore
+    }
+  }, [coordinates, isLoaded, map]);
+
+  return null;
 }
 
-export function MapSection() {
+export function MapSection({ routePoints: propRoutePoints, destinationRegion: propDestinationRegion }: MapSectionProps = {}) {
   const tripData = useTripStore((state) => state.tripData);
-  const routePoints = tripData.routePoints || [];
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const directionsRendererRef = useRef<any>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
+  // Usar props si están disponibles, sino usar el store
+  const routePointsRaw = propRoutePoints || tripData.routePoints || [];
+  const destinationRegion = propDestinationRegion || tripData.destinationRegion;
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [routeColor, setRouteColor] = useState<string>("#16a34a");
+  const [routeLineCoordinates, setRouteLineCoordinates] = useState<
+    [number, number][]
+  >([]);
+
+  // Normalizar routePoints a un formato común
+  const routePoints = useMemo(() => {
+    const normalized = routePointsRaw
+      .map((p: any) => {
+        const lat = Number(p.lat ?? p.latitude);
+        const lng = Number(p.lng ?? p.longitude);
+        return {
+          lat,
+          lng,
+          name: p.name,
+          order: p.order,
+        };
+      })
+      .filter((p) => {
+        // Validar rangos reales de coordenadas
+        if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return false;
+        if (p.lat < -90 || p.lat > 90) return false;
+        if (p.lng < -180 || p.lng > 180) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const ao = typeof a.order === "number" ? a.order : Number.POSITIVE_INFINITY;
+        const bo = typeof b.order === "number" ? b.order : Number.POSITIVE_INFINITY;
+        if (ao !== bo) return ao - bo;
+        return 0;
+      });
+
+    return normalized;
+  }, [routePointsRaw]);
 
   // Si no hay routePoints, no mostrar el mapa
   if (routePoints.length === 0) {
-    return null;
+    return (
+      <section className="space-y-6 pt-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-2xl font-bold tracking-tight">Dónde estarás</h2>
+          {destinationRegion ? (
+            <span className="text-gray-500 font-medium">{destinationRegion}</span>
+          ) : null}
+        </div>
+        <div className="w-full h-[240px] rounded-2xl overflow-hidden relative bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Esta experiencia aún no tiene puntos de ruta configurados.
+          </p>
+        </div>
+      </section>
+    );
   }
 
   // Calcular el centro del mapa basado en los routePoints
-  const center = routePoints.length > 0
-    ? {
-        lat: routePoints.reduce((sum, p) => sum + p.lat, 0) / routePoints.length,
-        lng: routePoints.reduce((sum, p) => sum + p.lng, 0) / routePoints.length,
-      }
-    : { lat: 4.6097, lng: -74.0817 }; // Bogotá por defecto
+  const mapCenter = useMemo(() => {
+    if (routePoints.length === 0) {
+      return { lat: 4.6097, lng: -74.0817 }; // Bogotá por defecto
+    }
+    
+    const avgLat = routePoints.reduce((sum, p) => sum + p.lat, 0) / routePoints.length;
+    const avgLng = routePoints.reduce((sum, p) => sum + p.lng, 0) / routePoints.length;
+    
+    return { lat: avgLat, lng: avgLng };
+  }, [routePoints]);
 
-  const locationName = tripData.destinationRegion || routePoints[0]?.name || "Ubicación del viaje";
+  // Calcular zoom basado en la dispersión de los puntos
+  const mapZoom = useMemo(() => {
+    if (routePoints.length === 0) return 10;
+    if (routePoints.length === 1) return 12;
+    
+    // Calcular la distancia máxima entre puntos
+    const lats = routePoints.map(p => p.lat);
+    const lngs = routePoints.map(p => p.lng);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    
+    const latDiff = maxLat - minLat;
+    const lngDiff = maxLng - minLng;
+    const maxDiff = Math.max(latDiff, lngDiff);
+    
+    // Ajustar zoom según la dispersión
+    if (maxDiff > 1) return 6;
+    if (maxDiff > 0.5) return 7;
+    if (maxDiff > 0.2) return 8;
+    if (maxDiff > 0.1) return 9;
+    if (maxDiff > 0.05) return 10;
+    if (maxDiff > 0.02) return 11;
+    return 12;
+  }, [routePoints]);
 
-  // Cargar Google Maps API
+  const locationName = destinationRegion || routePoints[0]?.name || "Ubicación del viaje";
+  const routeCoordinates = routePoints.map((p) => [p.lng, p.lat] as [number, number]);
+
+  // Obtener geometría de ruta (carretera) usando OSRM (fallback: línea simple)
   useEffect(() => {
-    if (typeof window === 'undefined' || !GOOGLE_MAPS_API_KEY || !mapRef.current) {
+    if (routeCoordinates.length < 2) {
+      setRouteLineCoordinates(routeCoordinates);
       return;
     }
 
-    // Verificar si ya está cargado
-    if (window.google?.maps) {
-      initializeMap();
-      return;
-    }
+    const controller = new AbortController();
+    const run = async () => {
+      try {
+        // Limitar cantidad de puntos para no romper el servicio
+        const coords = routeCoordinates.slice(0, 25);
+        const coordStr = coords.map(([lng, lat]) => `${lng},${lat}`).join(";");
 
-    // Verificar si el script ya existe
-    const existingScript = document.querySelector(`script[src*="maps.googleapis.com"]`);
-    if (existingScript) {
-      // Esperar a que se cargue si ya existe
-      const checkGoogle = setInterval(() => {
-        if (window.google?.maps) {
-          initializeMap();
-          clearInterval(checkGoogle);
+        const base =
+          process.env.NEXT_PUBLIC_ROUTING_BASE_URL ||
+          "https://router.project-osrm.org";
+        const url = `${base}/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
+
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) throw new Error(`Routing error: ${res.status}`);
+        const data = await res.json();
+        const geometry = data?.routes?.[0]?.geometry;
+        const line = geometry?.coordinates as [number, number][] | undefined;
+        if (Array.isArray(line) && line.length >= 2) {
+          setRouteLineCoordinates(line);
+        } else {
+          setRouteLineCoordinates(routeCoordinates);
         }
-      }, 100);
-      return () => clearInterval(checkGoogle);
-    }
-
-    // Cargar el script de Google Maps
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&language=es&region=CO`;
-    script.async = true;
-    script.defer = true;
-    
-    script.onload = () => {
-      if (window.google?.maps) {
-        initializeMap();
-      } else {
-        setMapError('Google Maps se cargó pero no está disponible');
+      } catch (e) {
+        // fallback silencioso
+        setRouteLineCoordinates(routeCoordinates);
       }
     };
-    
-    script.onerror = () => {
-      setMapError('Error al cargar Google Maps API - Verifica tu API key');
-    };
 
-    document.head.appendChild(script);
+    run();
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(routeCoordinates)]);
 
-    return () => {
-      // Limpiar al desmontar
-      if (mapInstanceRef.current) {
-        markersRef.current.forEach(marker => marker.setMap(null));
-        if (directionsRendererRef.current) {
-          directionsRendererRef.current.setMap(null);
-        }
+  // Resolver color primary real (MapLibre no acepta `hsl(var(--primary))`)
+  useEffect(() => {
+    try {
+      const raw = getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary")
+        .trim();
+
+      if (!raw) return;
+
+      // Normalizar cualquier color CSS moderno (lab/oklch/...) a rgb()/hex via canvas.
+      // MapLibre NO acepta lab()/oklch().
+      const looksLikeHslTriplet =
+        !raw.includes("(") && raw.split(/\s+/).filter(Boolean).length >= 3;
+      const cssColor = looksLikeHslTriplet ? `hsl(${raw})` : raw;
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Canvas normaliza el color a un formato compatible (normalmente rgb() o #RRGGBB)
+      ctx.fillStyle = "#16a34a";
+      ctx.fillStyle = cssColor;
+      const normalized = String(ctx.fillStyle);
+
+      // Asegurar que no quede en formatos no soportados por MapLibre
+      if (normalized.startsWith("lab(") || normalized.startsWith("oklch(")) {
+        return;
       }
-    };
-  }, [routePoints.length]); // Re-inicializar si cambian los routePoints
 
-  // Inicializar el mapa
-  const initializeMap = () => {
-    if (!mapRef.current || !window.google?.maps) return;
-
-    const map = new window.google.maps.Map(mapRef.current, {
-      center: center,
-      zoom: routePoints.length === 1 ? 10 : 8,
-      zoomControl: true,
-      streetViewControl: false,
-      mapTypeControl: false,
-      fullscreenControl: true,
-    });
-
-    mapInstanceRef.current = map;
-
-    // Limpiar marcadores anteriores
-    markersRef.current.forEach(marker => marker.setMap(null));
-    markersRef.current = [];
-
-    // Agregar marcadores
-    routePoints.forEach((point, index) => {
-      const marker = new window.google.maps.Marker({
-        position: { lat: point.lat, lng: point.lng },
-        map: map,
-        label: {
-          text: String(point.order || index + 1),
-          color: '#fff',
-          fontSize: '12px',
-          fontWeight: 'bold',
-        },
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 20,
-          fillColor: '#4f46e5',
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 2,
-        },
-        title: point.name || `Punto ${index + 1}`,
-      });
-      markersRef.current.push(marker);
-    });
-
-    // Dibujar rutas entre puntos si hay más de uno
-    if (routePoints.length > 1) {
-      const directionsService = new window.google.maps.DirectionsService();
-      const directionsRenderer = new window.google.maps.DirectionsRenderer({
-        map: map,
-        suppressMarkers: true, // No mostrar marcadores adicionales
-        preserveViewport: true,
-      });
-      directionsRendererRef.current = directionsRenderer;
-
-      // Crear waypoints (todos los puntos excepto el primero y el último)
-      const waypoints = routePoints.slice(1, -1).map(point => ({
-        location: { lat: point.lat, lng: point.lng },
-        stopover: true,
-      }));
-
-      const travelMode = (window.google.maps as any).TravelMode?.DRIVING || 'DRIVING';
-      directionsService.route(
-        {
-          origin: { lat: routePoints[0].lat, lng: routePoints[0].lng },
-          destination: { lat: routePoints[routePoints.length - 1].lat, lng: routePoints[routePoints.length - 1].lng },
-          waypoints: waypoints,
-          travelMode: travelMode,
-        },
-        (result: any, status: any) => {
-          if (status === 'OK' && result) {
-            directionsRenderer.setDirections(result);
-          } else {
-            // Si falla, dibujar una línea recta simple
-            const polyline = new window.google.maps.Polyline({
-              path: routePoints.map(p => ({ lat: p.lat, lng: p.lng })),
-              geodesic: true,
-              strokeColor: '#4f46e5',
-              strokeOpacity: 0.8,
-              strokeWeight: 3,
-            });
-            polyline.setMap(map);
-          }
-        }
-      );
+      if (normalized) setRouteColor(normalized);
+    } catch {
+      // ignore
     }
-
-    setIsLoaded(true);
-  };
+  }, []);
 
   return (
     <section className="space-y-6 pt-4">
@@ -211,23 +252,53 @@ export function MapSection() {
         <h2 className="text-2xl font-bold tracking-tight">Dónde estarás</h2>
         <span className="text-gray-500 font-medium">{locationName}</span>
       </div>
-      <div className="w-full h-[400px] bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden relative">
-        {mapError ? (
-          <div className="w-full h-full flex items-center justify-center text-red-500 p-4 text-center">
-            <div>
-              <p className="font-semibold mb-2">Error al cargar el mapa</p>
-              <p className="text-sm">{mapError}</p>
-            </div>
-          </div>
-        ) : (
-          <div ref={mapRef} className="w-full h-full" />
-        )}
-        {!isLoaded && !mapError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-            <p className="text-gray-500">Cargando mapa...</p>
-          </div>
-        )}
+      <div ref={mapContainerRef} className="w-full h-[400px] rounded-2xl overflow-hidden relative">
+        <MapComponent
+          center={[mapCenter.lng, mapCenter.lat]}
+          zoom={mapZoom}
+          dragPan={true}
+          scrollZoom={true}
+          boxZoom={false}
+          doubleClickZoom={true}
+          keyboard={false}
+          touchZoomRotate={true}
+          minZoom={2}
+          maxZoom={18}
+          styles={{
+            light: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+            dark: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+          }}
+        >
+          <MapControls showZoom={true} position="bottom-right" />
+
+          {/* Ruta (línea) */}
+          {routeCoordinates.length >= 2 && (
+            <>
+              <FitRouteBounds coordinates={routeLineCoordinates} />
+              <MapRoute
+                coordinates={routeLineCoordinates}
+                color={routeColor}
+                width={4}
+                opacity={0.9}
+              />
+            </>
+          )}
+          
+          {routePoints.map((point, index) => (
+            <MapMarker
+              key={`${point.lat}-${point.lng}-${index}`}
+              longitude={point.lng}
+              latitude={point.lat}
+            >
+              <MarkerContent>
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white font-bold text-sm shadow-lg border-2 border-white">
+                  {typeof point.order === "number" ? point.order : index + 1}
+                </div>
+              </MarkerContent>
+            </MapMarker>
+          ))}
+        </MapComponent>
       </div>
     </section>
-  )
+  );
 }

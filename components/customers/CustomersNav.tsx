@@ -82,10 +82,10 @@ function CustomersNav() {
   return (
     <div className="sticky top-0 z-50 border-b border-gray-100 bg-[#fdfdfc]/90 backdrop-blur-md dark:border-gray-800 dark:bg-[#1a1a1a]/90">
       <div className="mx-auto flex w-full max-w-full  items-center justify-between px-6 py-4 md:px-20">
-        <div className="font-caveat text-2xl font-bold flex items-center gap-2">
+        <Link href="/customers" className="font-caveat text-2xl font-bold flex items-center gap-2">
           <Tent className="h-5 w-5" />
           TravelHive
-        </div>
+        </Link>
 
         <div className="flex items-center gap-6">
           <Link

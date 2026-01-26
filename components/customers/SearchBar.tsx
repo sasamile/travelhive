@@ -39,6 +39,7 @@ function SearchInput({
 
 function SearchBar() {
   const router = useRouter();
+  const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [dates, setDates] = useState("");
   const [travelers, setTravelers] = useState("");
@@ -49,6 +50,7 @@ function SearchBar() {
       onSubmit={(event) => {
         event.preventDefault();
         const params = new URLSearchParams();
+        if (origin) params.set("origen", origin);
         if (destination) params.set("destino", destination);
         if (dates) params.set("fechas", dates);
         if (travelers) params.set("viajeros", travelers);
@@ -56,6 +58,13 @@ function SearchBar() {
       }}
     >
       <div className="flex flex-col items-center md:flex-row">
+        <SearchInput
+          label="Origen"
+          placeholder="¿Desde dónde sales?"
+          value={origin}
+          onChange={setOrigin}
+        />
+        <SearchDivider />
         <SearchInput
           label="Destino"
           placeholder="¿A dónde vas?"
