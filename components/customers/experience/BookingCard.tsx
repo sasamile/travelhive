@@ -79,6 +79,9 @@ export function BookingCard({
     return new Date(Date.UTC(y, m - 1, d, hh, mm, ss, ms)).toISOString();
   };
 
+  // Filtrar expediciones disponibles: no canceladas
+  // NO filtrar por capacityAvailable aquí, porque queremos mostrar todas las expediciones
+  // incluso si están sin cupo, para que el usuario pueda verlas
   const availableExpeditions = useMemo(
     () =>
       (expeditions || [])
@@ -88,8 +91,20 @@ export function BookingCard({
     [expeditions]
   );
 
+  // Filtrar expediciones con cupo disponible para determinar si mostrar selector de fechas
+  const expeditionsWithCapacity = useMemo(
+    () =>
+      availableExpeditions.filter((e) => {
+        // Incluir expediciones con cupo disponible (capacityAvailable > 0)
+        // O si capacityAvailable es null/undefined, asumir que hay cupo
+        return e.capacityAvailable === null || e.capacityAvailable === undefined || e.capacityAvailable > 0;
+      }),
+    [availableExpeditions]
+  );
+
+  // Si hay expediciones con cupo, usar la primera; si no, modo "crear nueva"
   const [selectedExpeditionId, setSelectedExpeditionId] = useState<string>(
-    availableExpeditions[0]?.idExpedition || ""
+    expeditionsWithCapacity[0]?.idExpedition || ""
   );
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
@@ -97,19 +112,60 @@ export function BookingCard({
   const [submitting, setSubmitting] = useState(false);
 
   // Para reservar "desde viaje" cuando no hay expediciones
-  const [fromTripStart, setFromTripStart] = useState(
-    toDateInputValue(startDateFallback)
-  );
-  const [fromTripEnd, setFromTripEnd] = useState(toDateInputValue(endDateFallback));
-  const tripMinDate = toDateInputValue(startDateFallback);
-  const tripMaxDate = toDateInputValue(endDateFallback);
+  // Calcular la fecha mínima: máximo entre la fecha actual y la fecha de inicio del viaje
+  const getMinDate = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalizar a medianoche
+    const todayStr = today.toISOString().slice(0, 10); // yyyy-mm-dd
+    
+    const tripStart = startDateFallback ? toDateInputValue(startDateFallback) : "";
+    
+    // Si no hay fecha de inicio del viaje, usar hoy
+    if (!tripStart) return todayStr;
+    
+    // Usar la fecha más reciente entre hoy y la fecha de inicio del viaje
+    return tripStart > todayStr ? tripStart : todayStr;
+  };
+
+  const getMaxDate = () => {
+    return toDateInputValue(endDateFallback) || "";
+  };
+
+  const tripMinDate = getMinDate();
+  const tripMaxDate = getMaxDate();
+
+  // Inicializar fechas con valores válidos (no en el pasado)
+  const getInitialStartDate = () => {
+    const minDate = tripMinDate;
+    const fallbackDate = toDateInputValue(startDateFallback);
+    
+    // Si la fecha de inicio del viaje es en el pasado, usar la fecha mínima (hoy)
+    if (fallbackDate && fallbackDate < minDate) {
+      return minDate;
+    }
+    return fallbackDate || minDate;
+  };
+
+  const getInitialEndDate = () => {
+    const maxDate = tripMaxDate;
+    const fallbackDate = toDateInputValue(endDateFallback);
+    
+    // Si la fecha de fin del viaje es en el pasado, usar la fecha máxima disponible
+    if (fallbackDate && fallbackDate < tripMinDate) {
+      return maxDate || tripMinDate;
+    }
+    return fallbackDate || maxDate;
+  };
+
+  const [fromTripStart, setFromTripStart] = useState(getInitialStartDate());
+  const [fromTripEnd, setFromTripEnd] = useState(getInitialEndDate());
 
   const selectedExpedition = useMemo(() => {
     const found = availableExpeditions.find(
       (e) => e.idExpedition === selectedExpeditionId
     );
-    return found || availableExpeditions[0] || null;
-  }, [availableExpeditions, selectedExpeditionId]);
+    return found || expeditionsWithCapacity[0] || null;
+  }, [availableExpeditions, expeditionsWithCapacity, selectedExpeditionId]);
 
   const startDate = selectedExpedition?.startDate || startDateFallback || null;
   const endDate = selectedExpedition?.endDate || endDateFallback || null;
@@ -158,13 +214,49 @@ export function BookingCard({
     !isOverMax &&
     (capacityAvailable === null || capacityAvailable >= persons);
 
-  const hasExpeditions = availableExpeditions.length > 0;
+  // Verificar si hay cupo disponible para las fechas seleccionadas
+  const hasCapacityForSelectedDates = useMemo(() => {
+    if (!fromTripStart || !fromTripEnd) return true; // Si no hay fechas seleccionadas, permitir (se validará después)
+    
+    // Buscar expediciones existentes que coincidan con las fechas seleccionadas
+    const matchingExpeditions = availableExpeditions.filter((exp) => {
+      if (!exp.startDate || !exp.endDate) return false;
+      
+      const expStart = new Date(exp.startDate).toISOString().slice(0, 10);
+      const expEnd = new Date(exp.endDate).toISOString().slice(0, 10);
+      
+      // Verificar si las fechas seleccionadas se solapan con la expedición existente
+      return (
+        (fromTripStart >= expStart && fromTripStart <= expEnd) ||
+        (fromTripEnd >= expStart && fromTripEnd <= expEnd) ||
+        (fromTripStart <= expStart && fromTripEnd >= expEnd)
+      );
+    });
+    
+    // Si hay expediciones que coinciden, verificar capacidad
+    if (matchingExpeditions.length > 0) {
+      // Verificar si alguna tiene cupo disponible
+      const hasAvailableCapacity = matchingExpeditions.some((exp) => {
+        const capacity = exp.capacityAvailable ?? null;
+        // Si capacityAvailable es null/undefined, asumir que hay cupo
+        // Si es un número, debe ser >= a las personas solicitadas
+        return capacity === null || capacity === undefined || capacity >= persons;
+      });
+      
+      return hasAvailableCapacity;
+    }
+    
+    // Si no hay expediciones que coincidan, asumir que se puede crear una nueva (hay cupo)
+    return true;
+  }, [fromTripStart, fromTripEnd, availableExpeditions, persons]);
+
+  // Siempre usar selector de fechas (nunca mostrar select de expediciones)
   const canReserveFromTrip =
-    !hasExpeditions &&
     Boolean(fromTripStart) &&
     Boolean(fromTripEnd) &&
     persons > 0 &&
-    !isOverMax;
+    !isOverMax &&
+    hasCapacityForSelectedDates;
 
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-2xl shadow-gray-200/50 dark:shadow-none">
@@ -185,23 +277,44 @@ export function BookingCard({
         </div>
       </div>
       <div className="space-y-4 mb-8">
-        {availableExpeditions.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                <CalendarDays className="h-5 w-5" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-extrabold tracking-tight">
-                  Reserva directa del viaje
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  No hay expediciones creadas. Reservaremos creando la expedición automáticamente.
-                </p>
-              </div>
+        {/* Siempre mostrar selector de fechas, nunca un select de expediciones */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+              <CalendarDays className="h-5 w-5" />
             </div>
+            <div className="space-y-1">
+              <p className="font-extrabold tracking-tight">
+                Selecciona tus fechas
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Elige las fechas de inicio y fin de tu viaje
+              </p>
+            </div>
+          </div>
 
             <div className="mt-4 space-y-3">
+              {/* Mensaje de error si no hay cupo disponible */}
+              {fromTripStart && fromTripEnd && !hasCapacityForSelectedDates && (
+                <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0">
+                      <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">
+                        No hay cupos disponibles
+                      </p>
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        No hay disponibilidad para las fechas seleccionadas. Por favor, elige otras fechas.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
                   Fechas
@@ -219,6 +332,12 @@ export function BookingCard({
                       max={tripMaxDate || undefined}
                       onChange={(e) => {
                         const next = e.target.value;
+                        // Validar que la fecha no sea en el pasado
+                        const today = new Date().toISOString().slice(0, 10);
+                        if (next < today) {
+                          toast.error("No puedes seleccionar fechas en el pasado");
+                          return;
+                        }
                         setFromTripStart(next);
                         // Mantener end >= start y ambos dentro del rango
                         if (fromTripEnd && next && fromTripEnd < next) {
@@ -240,6 +359,12 @@ export function BookingCard({
                       max={tripMaxDate || undefined}
                       onChange={(e) => {
                         const next = e.target.value;
+                        // Validar que la fecha no sea en el pasado
+                        const today = new Date().toISOString().slice(0, 10);
+                        if (next < today) {
+                          toast.error("No puedes seleccionar fechas en el pasado");
+                          return;
+                        }
                         setFromTripEnd(next);
                         // Si end < start, ajustar start hacia end
                         if (fromTripStart && next && next < fromTripStart) {
@@ -261,109 +386,11 @@ export function BookingCard({
               </div>
 
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-                {([
-                  {
-                    label: "Adultos",
-                    value: adults,
-                    minusLabel: "Restar adulto",
-                    plusLabel: "Sumar adulto",
-                    bump: bumpAdults,
-                  },
-                  {
-                    label: "Niños",
-                    value: children,
-                    minusLabel: "Restar niño",
-                    plusLabel: "Sumar niño",
-                    bump: bumpChildren,
-                  },
-                ] as const).map((c, idx) => (
-                  <div
-                    key={c.label}
-                    className={[
-                      "flex items-center justify-between gap-3 px-3 py-3",
-                      idx === 0 ? "border-b border-gray-200 dark:border-gray-700" : "",
-                    ].join(" ")}
-                  >
-                    <span className="text-xs font-extrabold uppercase tracking-widest text-gray-400">
-                      {c.label}
-                    </span>
-                    <div className="flex items-center rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-900">
-                      <button
-                        type="button"
-                        className="h-9 w-10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
-                        onClick={() => c.bump(-1)}
-                        disabled={submitting}
-                        aria-label={c.minusLabel}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <div className="h-9 w-12 flex items-center justify-center font-extrabold tabular-nums">
-                        {c.value}
-                      </div>
-                      <button
-                        type="button"
-                        className="h-9 w-10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
-                        onClick={() => c.bump(1)}
-                        disabled={submitting || isAtMax}
-                        aria-label={c.plusLabel}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                  Código de descuento (opcional)
-                </label>
-                <div className="flex items-center gap-2">
-                  <Ticket className="h-4 w-4 text-gray-400" />
-                  <input
-                    className="w-full bg-transparent outline-none text-sm font-semibold"
-                    placeholder="DESCUENTO10"
-                    value={discountCode}
-                    onChange={(e) => setDiscountCode(e.target.value)}
-                    disabled={submitting}
-                  />
-                </div>
-              </div>
-
-              {typeof maxPersons === "number" && (
-                <p className="text-xs text-gray-500">
-                  Máx. por reserva: <span className="font-bold">{maxPersons}</span>
-                </p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900">
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                Expedición / Fechas
-              </label>
-              <select
-                className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-gray-700 dark:bg-gray-900"
-                value={selectedExpedition?.idExpedition || ""}
-                onChange={(e) => setSelectedExpeditionId(e.target.value)}
-              >
-                {availableExpeditions.map((e) => (
-                  <option key={e.idExpedition} value={e.idExpedition}>
-                    {formatDate(e.startDate)} - {formatDate(e.endDate)}{" "}
-                    {typeof e.capacityAvailable === "number"
-                      ? `• ${e.capacityAvailable} cupos`
-                      : ""}
-                  </option>
-                ))}
-              </select>
-
-              <div className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {[
                   {
                     label: "Adultos",
                     value: adults,
-                    unitPrice: selectedExpedition?.priceAdult ?? null,
+                    unitPrice: displayPrice,
                     bump: bumpAdults,
                     minusLabel: "Restar adulto",
                     plusLabel: "Sumar adulto",
@@ -371,7 +398,7 @@ export function BookingCard({
                   {
                     label: "Niños",
                     value: children,
-                    unitPrice: selectedExpedition?.priceChild ?? null,
+                    unitPrice: null, // El precio de niños puede venir de otra fuente
                     bump: bumpChildren,
                     minusLabel: "Restar niño",
                     plusLabel: "Sumar niño",
@@ -389,14 +416,14 @@ export function BookingCard({
                         <p className="text-xs font-extrabold uppercase tracking-widest text-gray-400">
                           {row.label}
                         </p>
-                        {typeof row.unitPrice === "number" && (
+                        {typeof row.unitPrice === "number" && row.label === "Adultos" && (
                           <p className="mt-1 text-xs text-gray-500">
                             {new Intl.NumberFormat("es-CO", {
                               style: "currency",
                               currency,
                               maximumFractionDigits: 0,
                             }).format(row.unitPrice)}{" "}
-                            / {row.label === "Niños" ? "niño" : "adulto"}
+                            / adulto
                           </p>
                         )}
                       </div>
@@ -429,7 +456,7 @@ export function BookingCard({
                 ))}
               </div>
 
-              <div className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                   Código de descuento (opcional)
                 </label>
@@ -445,97 +472,103 @@ export function BookingCard({
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                {typeof capacityAvailable === "number" && (
-                  <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-1">
-                    Cupos: <span className="font-bold">{capacityAvailable}</span>
-                  </span>
-                )}
-                {typeof maxPersons === "number" && (
-                  <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-1">
-                    Máx. por reserva:{" "}
-                    <span className="font-bold">{maxPersons}</span>
-                  </span>
-                )}
-              </div>
+              {typeof maxPersons === "number" && (
+                <p className="text-xs text-gray-500">
+                  Máx. por reserva: <span className="font-bold">{maxPersons}</span>
+                </p>
+              )}
             </div>
           </div>
-        )}
       </div>
       <button
         className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 mb-4 disabled:opacity-60 disabled:cursor-not-allowed"
-        disabled={submitting || (hasExpeditions ? !canReserve : !canReserveFromTrip)}
+        disabled={submitting || !canReserveFromTrip}
         onClick={async () => {
           try {
             setSubmitting(true);
             // No enviar redirectUrl (backend valida estrictamente)
 
             let res;
-            if (hasExpeditions) {
-              if (!selectedExpedition?.idExpedition) {
-                toast.error("Selecciona una expedición");
-                return;
-              }
-              if (persons <= 0) {
-                toast.error("Selecciona al menos 1 viajero");
-                return;
-              }
-              if (
-                typeof capacityAvailable === "number" &&
-                capacityAvailable < persons
-              ) {
-                toast.error("No hay cupos suficientes");
-                return;
-              }
-              res = await api.post("/bookings", {
-                idTrip,
-                idExpedition: selectedExpedition.idExpedition,
-                adults,
-                children,
-                ...(discountCode.trim()
-                  ? { discountCode: discountCode.trim() }
-                  : {}),
-              });
-            } else {
-              // Reserva recomendada: crea expedición automáticamente
-              if (!fromTripStart || !fromTripEnd) {
-                toast.error("Selecciona fechas");
-                return;
-              }
-
-              // Validar por día (YYYY-MM-DD) para evitar problemas de zona horaria
-              if (fromTripStart > fromTripEnd) {
-                toast.error("La fecha de inicio debe ser anterior a la fecha de fin");
-                return;
-              }
-
-              // Validar rango si el viaje lo trae
-              if (tripMinDate && fromTripStart < tripMinDate) {
-                toast.error("Las fechas deben estar dentro del rango del viaje");
-                return;
-              }
-              if (tripMaxDate && fromTripEnd > tripMaxDate) {
-                toast.error("Las fechas deben estar dentro del rango del viaje");
-                return;
-              }
-
-              const startIso = buildIsoWithFallbackTime(
-                fromTripStart,
-                startDateFallback
-              );
-              const endIso = buildIsoWithFallbackTime(fromTripEnd, endDateFallback);
-
-              res = await api.post("/bookings/from-trip", {
-                idTrip,
-                startDate: startIso,
-                endDate: endIso,
-                adults,
-                children,
-                ...(discountCode.trim()
-                  ? { discountCode: discountCode.trim() }
-                  : {}),
-              });
+            
+            // Siempre usar el modo "from-trip" para crear expedición automáticamente
+            // Esto permite al usuario seleccionar cualquier rango de fechas válido
+            if (!fromTripStart || !fromTripEnd) {
+              toast.error("Selecciona fechas de inicio y fin");
+              return;
             }
+
+            // Validar por día (YYYY-MM-DD) para evitar problemas de zona horaria
+            if (fromTripStart > fromTripEnd) {
+              toast.error("La fecha de inicio debe ser anterior a la fecha de fin");
+              return;
+            }
+
+            // Validar rango si el viaje lo trae
+            if (tripMinDate && fromTripStart < tripMinDate) {
+              toast.error("Las fechas deben estar dentro del rango del viaje");
+              return;
+            }
+            if (tripMaxDate && fromTripEnd > tripMaxDate) {
+              toast.error("Las fechas deben estar dentro del rango del viaje");
+              return;
+            }
+
+            // Validar que no sean fechas en el pasado
+            const today = new Date().toISOString().slice(0, 10);
+            if (fromTripStart < today) {
+              toast.error("No puedes seleccionar fechas en el pasado");
+              return;
+            }
+
+            // Verificar capacidad disponible antes de crear la reserva
+            const matchingExpeditions = availableExpeditions.filter((exp) => {
+              if (!exp.startDate || !exp.endDate) return false;
+              
+              const expStart = new Date(exp.startDate).toISOString().slice(0, 10);
+              const expEnd = new Date(exp.endDate).toISOString().slice(0, 10);
+              
+              return (
+                (fromTripStart >= expStart && fromTripStart <= expEnd) ||
+                (fromTripEnd >= expStart && fromTripEnd <= expEnd) ||
+                (fromTripStart <= expStart && fromTripEnd >= expEnd)
+              );
+            });
+            
+            if (matchingExpeditions.length > 0) {
+              // Verificar si hay cupo disponible en las expediciones existentes
+              const availableCapacity = matchingExpeditions.reduce((total, exp) => {
+                const capacity = exp.capacityAvailable ?? null;
+                if (capacity === null || capacity === undefined) {
+                  // Si no hay información de capacidad, asumir que hay cupo ilimitado
+                  return total + 999;
+                }
+                return total + Math.max(0, capacity);
+              }, 0);
+              
+              if (availableCapacity < persons) {
+                toast.error(
+                  `No hay cupos suficientes. Disponibles: ${availableCapacity}, Solicitados: ${persons}`
+                );
+                return;
+              }
+            }
+
+            const startIso = buildIsoWithFallbackTime(
+              fromTripStart,
+              startDateFallback
+            );
+            const endIso = buildIsoWithFallbackTime(fromTripEnd, endDateFallback);
+
+            res = await api.post("/bookings/from-trip", {
+              idTrip,
+              startDate: startIso,
+              endDate: endIso,
+              adults,
+              children,
+              ...(discountCode.trim()
+                ? { discountCode: discountCode.trim() }
+                : {}),
+            });
 
             const wompiPaymentLink =
               res?.data?.data?.wompiPaymentLink ||

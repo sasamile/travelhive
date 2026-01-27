@@ -10,6 +10,7 @@ import DateRangeSection from "./DateRangeSection";
 import PriceAndPersonsSection from "./PriceAndPersonsSection";
 import PriceTypeAndCategorySection from "./PriceTypeAndCategorySection";
 import RoutePointsSection from "./RoutePointsSection";
+import DiscountCodesAndPromoterSection from "./DiscountCodesAndPromoterSection";
 
 interface BasicInfoStepProps {
   tripId?: string;
@@ -352,6 +353,10 @@ export default function BasicInfoStep({ tripId, onTripCreated, initialData }: Ba
             <p className="text-xs text-slate-500 text-right">
               Recomendado: 300-500 palabras
             </p>
+          </div>
+
+          <div data-section className="transform transition-all border-t border-slate-200 pt-6">
+            <DiscountCodesAndPromoterSection />
           </div>
         </form>
       </div>

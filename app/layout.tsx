@@ -3,6 +3,7 @@ import { Caveat, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "react-day-picker/style.css";
 import { Toaster } from "react-hot-toast";
+import { PendingBookingExpirationHandler } from "@/components/PendingBookingExpirationHandler";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} antialiased`}
       >
+          <PendingBookingExpirationHandler />
           {children}
         <Toaster 
           position="top-center"

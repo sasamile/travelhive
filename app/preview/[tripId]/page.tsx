@@ -63,7 +63,9 @@ export default function PreviewPage() {
   const [agencyInfo, setAgencyInfo] = useState<any>(null);
   const [loadingAgency, setLoadingAgency] = useState(true);
   const [showFullItinerary, setShowFullItinerary] = useState(false);
-  const [loadingTrip, setLoadingTrip] = useState(false);
+  // OPTIMIZACIÓN: Inicializar loadingTrip como false para viajes temporales
+  const isTempTrip = tripIdParam?.startsWith("temp_");
+  const [loadingTrip, setLoadingTrip] = useState(!isTempTrip); // Solo cargar si no es temporal
   const [isEditing, setIsEditing] = useState(false);
   const hasLoadedFromBackend = useRef(false); // Rastrear si ya se cargaron datos del backend
   
@@ -73,7 +75,13 @@ export default function PreviewPage() {
     setIsEditing(isEditMode);
     // Resetear el flag cuando cambie el tripId
     hasLoadedFromBackend.current = false;
-  }, [tripIdParam]);
+    // OPTIMIZACIÓN: No establecer loadingTrip para viajes temporales
+    if (!isTempTrip && isEditMode) {
+      setLoadingTrip(true);
+    } else {
+      setLoadingTrip(false);
+    }
+  }, [tripIdParam, isTempTrip]);
 
   // Cargar información de la agencia logueada
   useEffect(() => {
@@ -107,8 +115,16 @@ export default function PreviewPage() {
   // Cargar datos del trip si estamos editando
   // IMPORTANTE: Solo cargar del backend si el store está vacío Y no se han cargado antes
   // Si el usuario hizo cambios, usar los datos del store (más recientes)
+  // OPTIMIZACIÓN: No cargar nada si es un viaje temporal (temp_)
   useEffect(() => {
     const loadTripData = async () => {
+      // OPTIMIZACIÓN: Si es un viaje temporal, no cargar del backend
+      if (tripIdParam && tripIdParam.startsWith("temp_")) {
+        console.log("📦 Preview: Viaje temporal detectado, usando datos del store directamente");
+        setLoadingTrip(false);
+        return;
+      }
+      
       if (!isEditing || !tripIdParam) return;
       
       // Obtener los datos actuales del store directamente (sin depender de tripData)
@@ -432,6 +448,48 @@ export default function PreviewPage() {
     // isActive: true por defecto cuando se publica o guarda como borrador
     formData.append("isActive", status === "PUBLISHED" ? "true" : "true");
 
+    // Discount Codes (opcional - JSON string)
+    // Enviar como string JSON dentro del form-data, compatible con los ejemplos de CURL
+    if (tripData.discountCodes !== undefined && tripData.discountCodes.length > 0) {
+      // Filtrar códigos válidos (con código no vacío)
+      const discountCodesArray = tripData.discountCodes
+        .filter((code) => code.code && code.code.trim() !== "")
+        .map((code) => ({
+          code: code.code.trim(),
+          percentage: code.percentage,
+          maxUses: code.maxUses ?? null,
+          perUserLimit: code.perUserLimit ?? null,
+        }));
+      
+      // Solo enviar si hay códigos válidos
+      if (discountCodesArray.length > 0) {
+        formData.append("discountCodes", JSON.stringify(discountCodesArray));
+      } else if (isEditing) {
+        // Si estamos editando y todos los códigos fueron eliminados, enviar array vacío para eliminar todos
+        formData.append("discountCodes", JSON.stringify([]));
+      }
+    } else if (isEditing && tripData.discountCodes !== undefined && tripData.discountCodes.length === 0) {
+      // Si estamos editando y el array está explícitamente vacío, enviar array vacío para eliminar todos
+      formData.append("discountCodes", JSON.stringify([]));
+    }
+    // Si es creación nueva y no hay códigos, no enviar el campo (opcional)
+
+    // Promoter (opcional)
+    // Solo enviar si hay un código definido o si estamos editando y queremos eliminarlo explícitamente
+    if (tripData.promoterCode !== undefined) {
+      if (tripData.promoterCode && tripData.promoterCode.trim() !== "") {
+        formData.append("promoterCode", tripData.promoterCode.trim());
+        if (tripData.promoterName && tripData.promoterName.trim() !== "") {
+          formData.append("promoterName", tripData.promoterName.trim());
+        }
+      } else if (isEditing) {
+        // Si estamos editando y el código está vacío, enviar string vacío para eliminar promoter
+        // Compatible con: curl -F "promoterCode="
+        formData.append("promoterCode", "");
+      }
+    }
+    // Si es creación nueva y no hay promoter, no enviar el campo (opcional)
+
     // Route Points (JSON string)
     if (tripData.routePoints && tripData.routePoints.length > 0) {
       const routePointsArray = tripData.routePoints.map((point) => ({
@@ -484,23 +542,37 @@ export default function PreviewPage() {
     }
 
     // Gallery Images (convertir base64 a File, o mantener URLs si ya son URLs)
+    // IMPORTANTE: Solo enviar imágenes nuevas (base64). Si todas son URLs existentes, no enviar nada
+    // para que el backend no borre las imágenes existentes.
     if (tripData.galleryImages && tripData.galleryImages.length > 0) {
+      let hasNewImages = false;
       tripData.galleryImages.forEach((image, index) => {
         try {
-          // Si es una URL (empieza con http:// o https://), no convertir
+          // Si es una URL (empieza con http:// o https://), no convertir ni enviar
           if (typeof image === 'string' && (image.startsWith('http://') || image.startsWith('https://'))) {
             // Si estamos editando, las URLs ya están en el backend, no necesitamos enviarlas de nuevo
             // Solo enviar si son nuevas imágenes (base64)
             console.log(`Imagen ${index} es una URL, omitiendo en el envío (ya existe en el backend)`);
             return;
           }
-          // Si es base64, convertir a File
+          // Si es base64, es una imagen nueva, convertir a File y enviar
+          hasNewImages = true;
           const file = base64ToFile(image, index);
           formData.append("galleryImages", file);
         } catch (error) {
           console.error(`Error convirtiendo imagen ${index}:`, error);
         }
       });
+      
+      // Si estamos editando y no hay imágenes nuevas, no enviar el campo galleryImages
+      // para que el backend no borre las imágenes existentes
+      if (isEditing && !hasNewImages) {
+        console.log("⚠️ Modo edición: No hay imágenes nuevas, omitiendo campo galleryImages para preservar las existentes");
+      }
+    } else if (isEditing) {
+      // Si estamos editando y no hay imágenes en el array, no enviar nada
+      // para que el backend no borre las imágenes existentes
+      console.log("⚠️ Modo edición: No hay imágenes en el array, omitiendo campo galleryImages para preservar las existentes");
     }
 
     // Log para debugging - mostrar todo el payload
@@ -577,8 +649,10 @@ export default function PreviewPage() {
     }
   };
 
-  // Mostrar loading mientras se cargan los datos
-  if (loadingTrip) {
+  // Mostrar loading solo si estamos editando y realmente cargando datos del backend
+  // OPTIMIZACIÓN: No mostrar loading para viajes temporales (temp_)
+  // isTempTrip ya está definido arriba en la línea 67
+  if (loadingTrip && isEditing && !isTempTrip) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-slate-500">Cargando datos del viaje...</div>
@@ -586,7 +660,18 @@ export default function PreviewPage() {
     );
   }
 
+  // OPTIMIZACIÓN: Para viajes temporales, dar un poco más de tiempo antes de mostrar error
   if (!tripData || !tripData.title) {
+    // Si es un viaje temporal y no hay datos aún, esperar un momento (puede estar sincronizando)
+    if (isTempTrip) {
+      // Dar tiempo para que el store se sincronice
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-slate-500">Preparando vista previa...</div>
+        </div>
+      );
+    }
+    
     // Si estamos editando, mostrar loading mientras redirige
     if (isEditing) {
       return (

@@ -20,9 +20,15 @@ import {
   MapPin,
   Clock,
   Sparkles,
+  Trash2,
+  AlertTriangle,
+  X,
+  Loader2,
+  BarChart3,
 } from "lucide-react";
 import { AgentHeader } from "@/components/agent/AgentHeader";
 import NewTripModal from "@/components/agent/NewTripModal";
+import TripStatsModal from "@/components/agent/TripStatsModal";
 import { cn } from "@/lib/utils";
 import api from "@/lib/axios";
 import toast from "react-hot-toast";
@@ -51,6 +57,14 @@ interface Expedition {
   status: string;
   statusColor: string;
   isActive?: boolean;
+  startDate?: string;
+  endDate?: string;
+  expeditions?: Array<{
+    startDate?: string;
+    endDate?: string;
+    capacityAvailable?: number;
+    capacity?: number;
+  }>;
 }
 
 interface ExpeditionsResponse {
@@ -86,6 +100,8 @@ export default function ExpeditionsPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [searchResults, setSearchResults] = useState<Expedition[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -93,6 +109,9 @@ export default function ExpeditionsPage() {
   const searchInputRef = useRef<HTMLDivElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editTripId, setEditTripId] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [expeditionToDelete, setExpeditionToDelete] = useState<{ tripId: string; expeditionId: string; title: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Refs para animaciones GSAP
   const containerRef = useRef<HTMLDivElement>(null);
@@ -197,9 +216,23 @@ export default function ExpeditionsPage() {
           let trips = response.data.data || [];
           let totalCount = response.data.total || 0;
           
+          // Calcular el estado correcto para cada expedición
+          trips = trips.map((trip: Expedition) => {
+            const calculatedStatus = calculateExpeditionStatus(trip);
+            return {
+              ...trip,
+              status: calculatedStatus,
+            };
+          });
+          
           if (activeTab === "inactive") {
             trips = trips.filter(
               (trip) => trip.isActive === false || trip.status === "DESACTIVADO" || trip.status === "INACTIVO" || trip.status === "INACTIVE"
+            );
+            totalCount = trips.length;
+          } else if (activeTab === "completed") {
+            trips = trips.filter(
+              (trip) => trip.status === "COMPLETADAS" || trip.status === "COMPLETADO" || trip.status === "COMPLETED"
             );
             totalCount = trips.length;
           }
@@ -386,6 +419,53 @@ export default function ExpeditionsPage() {
     };
   }, []);
 
+  // Función para calcular el estado correcto basado en ocupación y fechas
+  const calculateExpeditionStatus = (expedition: Expedition): string => {
+    const now = new Date();
+    const originalStatus = expedition.status?.toUpperCase() || "";
+    
+    // Obtener fecha de fin (puede venir de diferentes lugares)
+    let endDate: Date | null = null;
+    if (expedition.endDate) {
+      endDate = new Date(expedition.endDate);
+    } else if (expedition.expeditions && expedition.expeditions.length > 0) {
+      const firstExpedition = expedition.expeditions[0];
+      if (firstExpedition.endDate) {
+        endDate = new Date(firstExpedition.endDate);
+      }
+    }
+    
+    // Si la fecha de fin ya pasó, la expedición está completada
+    if (endDate && endDate < now) {
+      return "COMPLETADAS";
+    }
+    
+    // Si está en "LISTA DE ESPERA" pero está llena (100% ocupación), cambiar a "LLENO"
+    if (
+      (originalStatus === "LISTA DE ESPERA" || 
+       originalStatus === "WAITING_LIST" || 
+       originalStatus === "EN ESPERA") &&
+      expedition.occupancy.percentage >= 100
+    ) {
+      return "LLENO";
+    }
+    
+    // Si está llena pero no está en lista de espera, mantener el estado original
+    // pero podríamos cambiarlo a "LLENO" si es necesario
+    if (expedition.occupancy.percentage >= 100 && 
+        originalStatus !== "COMPLETADAS" && 
+        originalStatus !== "COMPLETADO" &&
+        originalStatus !== "LLENO") {
+      // Solo cambiar a LLENO si no está completada
+      if (!endDate || endDate >= now) {
+        return "LLENO";
+      }
+    }
+    
+    // Mantener el estado original en otros casos
+    return expedition.status;
+  };
+
   const getTabFromExpedition = (expedition: { status: string; isActive?: boolean }): string => {
     const isPublished = expedition.status === "PUBLISHED" || 
                        expedition.status === "PUBLICADO" || 
@@ -398,10 +478,16 @@ export default function ExpeditionsPage() {
                      expedition.status === "DESACTIVADO" || 
                      expedition.status === "INACTIVO" || 
                      expedition.status === "INACTIVE";
+    const isCompleted = expedition.status === "COMPLETADAS" || 
+                       expedition.status === "COMPLETADO" ||
+                       expedition.status === "COMPLETED";
+    const isFull = expedition.status === "LLENO";
     
     if (isInactive) return "inactive";
     if (isDraft) return "drafts";
     if (isArchived) return "archived";
+    if (isCompleted) return "completed";
+    if (isFull) return "active"; // Las llenas se muestran en activas
     if (isPublished) return "active";
     return "active";
   };
@@ -440,9 +526,23 @@ export default function ExpeditionsPage() {
         let trips = response.data.data || [];
         let totalCount = response.data.total || 0;
         
+        // Calcular el estado correcto para cada expedición
+        trips = trips.map((trip: Expedition) => {
+          const calculatedStatus = calculateExpeditionStatus(trip);
+          return {
+            ...trip,
+            status: calculatedStatus,
+          };
+        });
+        
         if (activeTab === "inactive") {
           trips = trips.filter(
             (trip) => trip.isActive === false || trip.status === "DESACTIVADO" || trip.status === "INACTIVO" || trip.status === "INACTIVE"
+          );
+          totalCount = trips.length;
+        } else if (activeTab === "completed") {
+          trips = trips.filter(
+            (trip) => trip.status === "COMPLETADAS" || trip.status === "COMPLETADO" || trip.status === "COMPLETED"
           );
           totalCount = trips.length;
         }
@@ -524,6 +624,27 @@ export default function ExpeditionsPage() {
       toast.error(error.response?.data?.message || "Error al cambiar el estado de la expedición");
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteExpedition = async () => {
+    if (!expeditionToDelete) return;
+
+    try {
+      setDeletingId(expeditionToDelete.expeditionId);
+      
+      await api.delete(`/agencies/trips/${expeditionToDelete.tripId}/expeditions/${expeditionToDelete.expeditionId}`);
+      
+      toast.success("Expedición eliminada exitosamente");
+      setIsDeleteModalOpen(false);
+      setExpeditionToDelete(null);
+      await refetchExpeditions();
+    } catch (error: any) {
+      console.error("Error al eliminar expedición:", error);
+      const errorMessage = error.response?.data?.message || "Error al eliminar la expedición";
+      toast.error(errorMessage);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -662,8 +783,12 @@ export default function ExpeditionsPage() {
                           ? "bg-red-50 text-red-700 border-red-200"
                           : expedition.status === "ARCHIVED" || expedition.status === "ARCHIVADO"
                           ? "bg-amber-50 text-amber-700 border-amber-200"
-                          : expedition.status === "COMPLETED" || expedition.status === "COMPLETADO"
+                          : expedition.status === "COMPLETADAS" || expedition.status === "COMPLETADO" || expedition.status === "COMPLETED"
                           ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : expedition.status === "LLENO"
+                          ? "bg-orange-50 text-orange-700 border-orange-200"
+                          : expedition.status === "LISTA DE ESPERA" || expedition.status === "WAITING_LIST" || expedition.status === "EN ESPERA"
+                          ? "bg-purple-50 text-purple-700 border-purple-200"
                           : "bg-zinc-50 text-zinc-700 border-zinc-200"
                       )}>
                         {(expedition.status === "PUBLISHED" || expedition.status === "ACTIVO" || expedition.status === "PUBLICADO") && (
@@ -793,6 +918,18 @@ export default function ExpeditionsPage() {
                           <DropdownMenuItem
                             onClick={() => {
                               setOpenMenuId(null);
+                              setSelectedTripId(expedition.id);
+                              setStatsModalOpen(true);
+                            }}
+                            className="flex items-center gap-3 cursor-pointer"
+                          >
+                            <BarChart3 className="size-4 text-purple-600 shrink-0" />
+                            <span className="font-medium">Ver Estadísticas</span>
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setOpenMenuId(null);
                               setEditTripId(expedition.id);
                               setIsModalOpen(true);
                             }}
@@ -801,6 +938,62 @@ export default function ExpeditionsPage() {
                             <Edit className="size-4 text-indigo-600 shrink-0" />
                             <span className="font-medium">Editar</span>
                           </DropdownMenuItem>
+                          
+                          {/* Solo mostrar opción de eliminar si la expedición NO está llena y tiene ocupación 0 */}
+                          {(() => {
+                            const isFull = expedition.occupancy?.percentage >= 100;
+                            const hasOccupancy = (expedition.occupancy?.current || 0) > 0;
+                            const canDelete = !isFull && !hasOccupancy;
+                            
+                            // Si no se puede eliminar, no mostrar la opción
+                            if (!canDelete) {
+                              return null;
+                            }
+                            
+                            return (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    setOpenMenuId(null);
+                                    // Necesitamos obtener las expediciones del trip para poder eliminarlas
+                                    // Asumimos que expedition.id es el tripId (idTrip)
+                                    try {
+                                      const tripResponse = await api.get(`/agencies/trips/${expedition.id}`);
+                                      const trip = tripResponse.data?.data || tripResponse.data;
+                                      
+                                      if (trip && trip.expeditions && trip.expeditions.length > 0) {
+                                        // Si hay múltiples expediciones, por ahora eliminamos la primera
+                                        // En el futuro se podría implementar un selector
+                                        const firstExpedition = trip.expeditions[0];
+                                        
+                                        // Si hay más de una expedición, mostrar advertencia
+                                        if (trip.expeditions.length > 1) {
+                                          toast.error(`Este viaje tiene ${trip.expeditions.length} expediciones. Por ahora solo se puede eliminar la primera.`);
+                                        }
+                                        
+                                        setExpeditionToDelete({
+                                          tripId: expedition.id,
+                                          expeditionId: firstExpedition.idExpedition,
+                                          title: expedition.title,
+                                        });
+                                        setIsDeleteModalOpen(true);
+                                      } else {
+                                        toast.error("Este viaje no tiene expediciones para eliminar");
+                                      }
+                                    } catch (error: any) {
+                                      console.error("Error al obtener expediciones:", error);
+                                      toast.error("Error al cargar las expediciones del viaje");
+                                    }
+                                  }}
+                                  className="flex items-center gap-3 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                >
+                                  <Trash2 className="size-4 text-red-600 shrink-0" />
+                                  <span className="font-medium">Eliminar Expedición</span>
+                                </DropdownMenuItem>
+                              </>
+                            );
+                          })()}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -930,13 +1123,102 @@ export default function ExpeditionsPage() {
       </div>
 
       <NewTripModal 
-        isOpen={isModalOpen} 
+        isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setEditTripId(null);
         }}
         editTripId={editTripId}
       />
+      
+      {selectedTripId && (
+        <TripStatsModal
+          isOpen={statsModalOpen}
+          onClose={() => {
+            setStatsModalOpen(false);
+            setSelectedTripId(null);
+          }}
+          tripId={selectedTripId}
+        />
+      )}
+
+      {/* Modal de confirmación para eliminar expedición */}
+      {isDeleteModalOpen && expeditionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => {
+              if (!deletingId) {
+                setIsDeleteModalOpen(false);
+                setExpeditionToDelete(null);
+              }
+            }}
+          />
+          
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <AlertTriangle className="size-5 text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-zinc-900">Confirmar Eliminación</h3>
+              </div>
+              <button
+                onClick={() => {
+                  if (!deletingId) {
+                    setIsDeleteModalOpen(false);
+                    setExpeditionToDelete(null);
+                  }
+                }}
+                disabled={!!deletingId}
+                className="p-2 text-zinc-400 hover:text-zinc-600 rounded-full hover:bg-zinc-100 transition-colors disabled:opacity-50"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-zinc-600">
+                ¿Estás seguro de que deseas eliminar la expedición <span className="font-semibold text-zinc-900">{expeditionToDelete.title}</span>?
+              </p>
+              <p className="text-xs text-zinc-500">
+                Esta acción no se puede deshacer. Solo se pueden eliminar expediciones sin reservas (PENDING o CONFIRMED).
+              </p>
+
+              <div className="flex gap-3 pt-4 border-t border-zinc-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!deletingId) {
+                      setIsDeleteModalOpen(false);
+                      setExpeditionToDelete(null);
+                    }
+                  }}
+                  disabled={!!deletingId}
+                  className="flex-1 px-4 py-3 text-sm font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteExpedition}
+                  disabled={!!deletingId}
+                  className="flex-1 px-4 py-3 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {deletingId ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Eliminando...
+                    </>
+                  ) : (
+                    'Eliminar Expedición'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

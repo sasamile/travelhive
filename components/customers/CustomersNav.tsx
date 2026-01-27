@@ -137,7 +137,7 @@ function CustomersNav() {
                 </Link>
                 <Link
                   className="flex items-center gap-2 rounded-lg px-3 py-2 font-medium text-[#121717] hover:bg-gray-50 dark:text-white dark:hover:bg-gray-800"
-                  href="/customers/trips"
+                  href="/customers/viajes"
                   role="menuitem"
                 >
                   Mis viajes

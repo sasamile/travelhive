@@ -3,9 +3,10 @@ import { TripCard } from './TripCard'
 
 type UpcomingTripsSectionProps = {
   trips: Trip[]
+  bookingsData?: Array<any> // Datos completos de las reservas
 }
 
-export function UpcomingTripsSection({ trips }: UpcomingTripsSectionProps) {
+export function UpcomingTripsSection({ trips, bookingsData = [] }: UpcomingTripsSectionProps) {
   return (
     <section className="mb-12">
       <div className="flex items-center justify-between mb-6">
@@ -17,9 +18,20 @@ export function UpcomingTripsSection({ trips }: UpcomingTripsSectionProps) {
         </span>
       </div>
       <div className="grid grid-cols-1 gap-6">
-        {trips.map((trip) => (
-          <TripCard key={trip.id} trip={trip} />
-        ))}
+        {trips.map((trip, index) => {
+          // Buscar los datos completos de la reserva correspondiente
+          const bookingData = bookingsData.find((b: any) => 
+            (b.idBooking || b.id) === trip.id
+          ) || bookingsData[index];
+          
+          return (
+            <TripCard 
+              key={trip.id} 
+              trip={trip} 
+              bookingData={bookingData}
+            />
+          );
+        })}
       </div>
     </section>
   )

@@ -73,9 +73,10 @@ interface StepperSidebarProps {
   onStepChange: (step: string) => void;
   completion: number;
   isMobile?: boolean;
+  isEditing?: boolean;
 }
 
-export default function StepperSidebar({ currentStep, onStepChange, completion, isMobile = false }: StepperSidebarProps) {
+export default function StepperSidebar({ currentStep, onStepChange, completion, isMobile = false, isEditing = false }: StepperSidebarProps) {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const stepRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -122,7 +123,7 @@ export default function StepperSidebar({ currentStep, onStepChange, completion, 
         <div className="flex items-center justify-between mb-3">
           <div className="font-caveat text-base font-bold flex items-center gap-2 text-slate-800">
             <Sparkles className="h-3.5 w-3.5 text-slate-600" />
-            <span>Nuevo Viaje</span>
+            <span>{isEditing ? "Editar Expedición" : "Nuevo Viaje"}</span>
           </div>
           <span className="text-xs font-bold text-slate-600">{completion}%</span>
         </div>
@@ -156,7 +157,7 @@ export default function StepperSidebar({ currentStep, onStepChange, completion, 
       <div className="px-4 py-4 border-b border-neutral-100">
         <div className="font-caveat text-lg font-bold flex items-center gap-2 text-slate-800">
           <Sparkles className="h-4 w-4 text-slate-600" />
-          <span>Nuevo Viaje</span>
+          <span>{isEditing ? "Editar Expedición" : "Nuevo Viaje"}</span>
         </div>
       </div>
       <div className="px-4 py-6 space-y-6 flex-1">

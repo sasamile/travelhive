@@ -30,6 +30,13 @@ export interface Day {
   order: number;
 }
 
+export interface DiscountCode {
+  code: string;
+  percentage: number;
+  maxUses?: number | null;
+  perUserLimit?: number | null;
+}
+
 export interface TripFormData {
   // Basic Info
   idCity?: string;
@@ -56,6 +63,11 @@ export interface TripFormData {
   galleryImages: string[]; // Base64 strings
   coverImageIndex: number | null;
   
+  // Discount Codes & Promoter (opcionales)
+  discountCodes?: DiscountCode[];
+  promoterCode?: string;
+  promoterName?: string;
+  
   // Metadata
   status?: "DRAFT" | "PUBLISHED";
 }
@@ -73,6 +85,10 @@ interface TripStore {
   // Actions para Gallery
   setGalleryImages: (images: string[]) => void;
   setCoverImageIndex: (index: number | null) => void;
+  
+  // Actions para Discount Codes & Promoter
+  setDiscountCodes: (codes: DiscountCode[]) => void;
+  setPromoter: (code?: string, name?: string) => void;
   
   // Utilidades
   resetTrip: () => void;
@@ -121,6 +137,20 @@ export const useTripStore = create<TripStore>()(
       setCoverImageIndex: (index) =>
         set((state) => ({
           tripData: { ...state.tripData, coverImageIndex: index },
+        })),
+
+      setDiscountCodes: (codes) =>
+        set((state) => ({
+          tripData: { ...state.tripData, discountCodes: codes },
+        })),
+
+      setPromoter: (code, name) =>
+        set((state) => ({
+          tripData: { 
+            ...state.tripData, 
+            promoterCode: code || undefined,
+            promoterName: name || undefined,
+          },
         })),
 
       resetTrip: () =>

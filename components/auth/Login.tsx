@@ -69,6 +69,8 @@ function Login() {
         password,
       });
 
+      console.log(response.data);  
+
       toast.success("¡Bienvenido! Has iniciado sesión correctamente");
 
       // Pequeño delay para asegurar que la cookie se establezca

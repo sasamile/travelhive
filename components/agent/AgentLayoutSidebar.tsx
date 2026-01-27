@@ -66,18 +66,6 @@ const navigationItems = [
     icon: Shield,
     section: "management",
   },
-  {
-    href: "/agent/payment",
-    label: "Payouts",
-    icon: Wallet,
-    section: "finance",
-  },
-  {
-    href: "/agent/invoices",
-    label: "Invoices",
-    icon: Receipt,
-    section: "finance",
-  },
 ];
 
 interface UserData {
@@ -120,8 +108,9 @@ export function AgentLayoutSidebar() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const managementItems = navigationItems.filter((item) => item.section === "management");
-  const financeItems = navigationItems.filter((item) => item.section === "finance");
+  const managementItems = navigationItems.filter(
+    (item) => item.section === "management",
+  );
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -152,10 +141,16 @@ export function AgentLayoutSidebar() {
   };
 
   // Obtener información del usuario o agencia
-  const displayName = userData?.agencies?.[0]?.agency?.nameAgency || userData?.user?.name || "Usuario";
-  const displayImage = userData?.agencies?.[0]?.agency?.picture || userData?.user?.image || "";
-  const displayEmail = userData?.agencies?.[0]?.agency?.email || userData?.user?.email || "";
-  const userRole = userData?.agencies?.[0]?.role === "admin" ? "Administrador" : "Organizador";
+  const displayName =
+    userData?.agencies?.[0]?.agency?.nameAgency ||
+    userData?.user?.name ||
+    "Usuario";
+  const displayImage =
+    userData?.agencies?.[0]?.agency?.picture || userData?.user?.image || "";
+  const displayEmail =
+    userData?.agencies?.[0]?.agency?.email || userData?.user?.email || "";
+  const userRole =
+    userData?.agencies?.[0]?.role === "admin" ? "Administrador" : "Organizador";
 
   return (
     <aside className="w-fit border-r border-zinc-200 flex flex-col fixed h-full z-50 bg-white">
@@ -184,33 +179,7 @@ export function AgentLayoutSidebar() {
                     "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
                     isActive
                       ? "bg-zinc-100 text-zinc-900 font-medium"
-                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
-                  )}
-                >
-                  <Icon className="size-5" />
-                  <span className="text-sm">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-        <div>
-          <p className="px-3 text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-4">
-            Finance
-          </p>
-          <nav className="space-y-1">
-            {financeItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
-                    isActive
-                      ? "bg-zinc-100 text-zinc-900 font-medium"
-                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900",
                   )}
                 >
                   <Icon className="size-5" />
@@ -249,8 +218,12 @@ export function AgentLayoutSidebar() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-xs font-semibold truncate">{displayName}</p>
-                  <p className="text-[10px] text-zinc-500 truncate">{userRole}</p>
+                  <p className="text-xs font-semibold truncate">
+                    {displayName}
+                  </p>
+                  <p className="text-[10px] text-zinc-500 truncate">
+                    {userRole}
+                  </p>
                 </div>
                 <MoreVertical className="size-4 text-zinc-400 shrink-0" />
               </button>
@@ -266,13 +239,19 @@ export function AgentLayoutSidebar() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/agent/profile" className="flex items-center gap-2 cursor-pointer">
+                <Link
+                  href="/agent/profile"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <User className="size-4" />
                   <span>Mi Perfil</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/agent/profile" className="flex items-center gap-2 cursor-pointer">
+                <Link
+                  href="/agent/profile"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <Settings className="size-4" />
                   <span>Configuración</span>
                 </Link>

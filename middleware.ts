@@ -44,8 +44,10 @@ const protectedRoutes = {
 // Función simplificada para verificar solo si hay cookie de sesión
 // NO hacer fetch a /auth/me para evitar timeouts y loops infinitos
 function hasSessionCookie(request: NextRequest): boolean {
+  // Buscar ambas variantes de la cookie (con y sin prefijo __Secure-)
   const sessionToken = request.cookies.get("better-auth.session_token");
-  return !!sessionToken;
+  const secureSessionToken = request.cookies.get("__Secure-better-auth.session_token");
+  return !!(sessionToken || secureSessionToken);
 }
 
 // Función para verificar si una ruta es pública

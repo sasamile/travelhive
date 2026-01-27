@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, ChevronRight, Info, Tag, Image, Sparkles } from "lucide-react";
 import { gsap } from "gsap";
@@ -45,6 +45,8 @@ export default function NewTripModal({ isOpen, onClose, editTripId }: NewTripMod
   const setItinerary = useTripStore((state) => state.setItinerary);
   const setGalleryImages = useTripStore((state) => state.setGalleryImages);
   const setCoverImageIndex = useTripStore((state) => state.setCoverImageIndex);
+  const setDiscountCodes = useTripStore((state) => state.setDiscountCodes);
+  const setPromoter = useTripStore((state) => state.setPromoter);
 
   // Bloquear scroll del body cuando el modal está abierto
   useEffect(() => {
@@ -126,7 +128,7 @@ export default function NewTripModal({ isOpen, onClose, editTripId }: NewTripMod
   }, [isOpen]);
 
   // Animación de salida
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (isAnimating) return;
     setIsAnimating(true);
 
@@ -164,7 +166,7 @@ export default function NewTripModal({ isOpen, onClose, editTripId }: NewTripMod
       }, "-=0.2");
 
     }, modalRef);
-  };
+  }, [isAnimating, onClose]);
 
   // Animación de transición entre pasos
   useEffect(() => {
@@ -226,6 +228,12 @@ export default function NewTripModal({ isOpen, onClose, editTripId }: NewTripMod
         const api = (await import("@/lib/axios")).default;
         const response = await api.get(`/agencies/trips/${editTripId}`);
         const trip = response.data?.data || response.data;
+        
+        if (!trip) {
+          toast.error("Viaje no encontrado. Puede que haya sido eliminado.");
+          handleClose();
+          return;
+        }
         
         if (trip) {
           const categoryMap: Record<string, string> = {
@@ -301,17 +309,37 @@ export default function NewTripModal({ isOpen, onClose, editTripId }: NewTripMod
               setCoverImageIndex(trip.coverImageIndex ?? 0);
             }
           }
+
+          // Cargar códigos de descuento (opcional)
+          if (trip.discountCodes && Array.isArray(trip.discountCodes) && trip.discountCodes.length > 0) {
+            setDiscountCodes(trip.discountCodes);
+          } else {
+            setDiscountCodes([]);
+          }
+
+          // Cargar promoter (opcional)
+          if (trip.promoterCode) {
+            setPromoter(trip.promoterCode, trip.promoterName);
+          } else {
+            setPromoter(undefined, undefined);
+          }
         }
       } catch (error: any) {
         console.error("Error al cargar datos del trip:", error);
-        toast.error("Error al cargar los datos del viaje para editar");
+        if (error.response?.status === 404) {
+          toast.error("Viaje no encontrado. Puede que haya sido eliminado o no tengas permisos para verlo.");
+        } else {
+          toast.error(error.response?.data?.message || "Error al cargar los datos del viaje para editar");
+        }
+        // Cerrar el modal si no se puede cargar el trip
+        handleClose();
       } finally {
         setLoadingTripData(false);
       }
     };
 
     loadTripData();
-  }, [editTripId, isOpen, setBasicInfo, setRoutePoints, setItinerary, setGalleryImages, setCoverImageIndex]);
+  }, [editTripId, isOpen, setBasicInfo, setRoutePoints, setItinerary, setGalleryImages, setCoverImageIndex, setDiscountCodes, setPromoter]);
 
   // Validar si el paso actual está completo (sin mostrar errores, solo para deshabilitar botón)
   const isStepComplete = (): boolean => {
@@ -410,7 +438,8 @@ export default function NewTripModal({ isOpen, onClose, editTripId }: NewTripMod
     } else if (currentStep === "gallery") {
       const previewId = editTripId || tripId || `temp_${Date.now()}`;
       handleClose();
-      router.push(`/preview/${previewId}`);
+      // OPTIMIZACIÓN: Usar router.push con prefetch deshabilitado para navegación más rápida
+      router.push(`/preview/${previewId}`, { scroll: false });
     }
   };
 
@@ -461,6 +490,7 @@ export default function NewTripModal({ isOpen, onClose, editTripId }: NewTripMod
             currentStep={currentStep} 
             onStepChange={setCurrentStep} 
             completion={getCompletion()} 
+            isEditing={!!editTripId}
           />
         </div>
 
@@ -471,6 +501,7 @@ export default function NewTripModal({ isOpen, onClose, editTripId }: NewTripMod
             onStepChange={setCurrentStep} 
             completion={getCompletion()} 
             isMobile={true}
+            isEditing={!!editTripId}
           />
         </div>
 
