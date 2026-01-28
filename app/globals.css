@@ -124,10 +124,23 @@
     @apply bg-background text-foreground;
   }
   .maplibregl-popup-content {
-    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+    @apply bg-transparent! shadow-none! p-0! m-0! rounded-none!;
+    padding: 0 !important;
+    margin: 0 !important;
   }
   .maplibregl-popup-tip {
     @apply hidden!;
+  }
+  .maplibregl-popup {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .marker-price,
+  .marker-price * {
+    cursor: pointer !important;
+  }
+  .maplibregl-popup-content * {
+    cursor: pointer !important;
   }
 }
 

@@ -53,6 +53,63 @@ interface UserData {
   }>;
 }
 
+interface DashboardData {
+  agency: {
+    idAgency: string;
+    nameAgency: string;
+    email: string;
+    phone?: string;
+    nit?: string;
+    rntNumber?: string;
+    picture?: string;
+    status: string;
+    approvalStatus: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  metrics: {
+    totalTrips: number;
+    activeTrips: number;
+    totalExpeditions: number;
+    upcomingExpeditions: number;
+    totalBookings: number;
+    confirmedBookings: number;
+    pendingBookings: number;
+    totalRevenue: number;
+    currency: string;
+    totalMembers: number;
+    activeMembers: number;
+  };
+  recentActivity: {
+    recentBookings: Array<{
+      idBooking: string;
+      status: string;
+      totalBuy: number;
+      currency: string;
+      dateBuy: string;
+      tripTitle: string;
+      ownerName: string;
+      ownerEmail: string;
+    }>;
+    upcomingExpeditions: Array<{
+      idExpedition: string;
+      tripTitle: string;
+      startDate: string;
+      endDate: string;
+      capacityTotal: number;
+      capacityAvailable: number;
+      occupancyPercentage: number;
+    }>;
+  };
+  quickStats: {
+    bookingsThisMonth: number;
+    revenueThisMonth: number;
+    bookingsLastMonth: number;
+    revenueLastMonth: number;
+    monthOverMonthChange: number;
+  };
+}
+
 interface InsightsData {
   stats: {
     avgBookingValue: {
@@ -119,6 +176,7 @@ function Page() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [insightsData, setInsightsData] = useState<InsightsData | null>(null);
   const [expeditions, setExpeditions] = useState<Expedition[]>([]);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
@@ -140,7 +198,65 @@ function Page() {
         const userResponse = await api.get<UserData>("/auth/me");
         setUserData(userResponse.data);
 
-        // Cargar insights
+        // Cargar datos del dashboard principal
+        try {
+          const dashboardResponse = await api.get<DashboardData>("/agencies/dashboard");
+          const data = dashboardResponse.data;
+          console.log("📊 Datos del dashboard:", data);
+          
+          setDashboardData(data);
+
+          // Mapear expediciones próximas
+          const mappedExpeditions: Expedition[] = (data.recentActivity?.upcomingExpeditions || []).slice(0, 5).map((exp) => {
+            const startDate = new Date(exp.startDate);
+            const endDate = new Date(exp.endDate);
+            
+            return {
+              id: exp.idExpedition,
+              title: exp.tripTitle,
+              location: `${format(startDate, "d MMM", { locale: dateFnsEs })} - ${format(endDate, "d MMM yyyy", { locale: dateFnsEs })}`,
+              image: "", // No usar imágenes externas
+              status: exp.occupancyPercentage >= 100 ? "FULL" : exp.occupancyPercentage >= 80 ? "ACTIVE" : "ACTIVE",
+              occupancy: {
+                current: exp.capacityTotal - exp.capacityAvailable,
+                total: exp.capacityTotal,
+                percentage: exp.occupancyPercentage,
+              },
+              startDate: exp.startDate,
+              endDate: exp.endDate,
+            };
+          });
+          console.log("🗺️ Expediciones mapeadas:", mappedExpeditions);
+          setExpeditions(mappedExpeditions);
+
+          // Mapear reservas recientes
+          const mappedBookings: Booking[] = (data.recentActivity?.recentBookings || []).slice(0, 5).map((booking) => ({
+            id: booking.idBooking,
+            expedition: booking.tripTitle,
+            departure: format(new Date(booking.dateBuy), "d MMM, yyyy", { locale: dateFnsEs }),
+            traveler: {
+              name: booking.ownerName,
+              email: booking.ownerEmail,
+              avatar: "", // No usar avatares externos
+            },
+            total: formatCurrency(booking.totalBuy, booking.currency),
+            status: booking.status.toLowerCase(),
+          }));
+          console.log("📋 Reservas mapeadas:", mappedBookings);
+          setRecentBookings(mappedBookings);
+
+        } catch (error: any) {
+          console.error("Error al cargar dashboard:", error);
+          if (error?.response?.status === 404) {
+            toast.error("No se encontró ninguna agencia asociada");
+          } else if (error?.response?.status === 403) {
+            toast.error("No tienes permiso para acceder al dashboard");
+          } else {
+            toast.error("Error al cargar el dashboard");
+          }
+        }
+
+        // Cargar insights (para gráficas y métricas avanzadas)
         try {
           const params: any = {};
           
@@ -166,31 +282,10 @@ function Page() {
           }
         } catch (error) {
           console.error("Error al cargar insights:", error);
+          // No es crítico, continuar sin insights
         }
 
-        // Cargar expediciones activas (últimas 5)
-        try {
-          const tripsResponse = await api.get<any>("/agencies/trips", {
-            params: { status: "active", limit: 5, page: 1 }
-          });
-          const trips = tripsResponse.data?.data || [];
-          setExpeditions(trips.slice(0, 5));
-        } catch (error) {
-          console.error("Error al cargar expediciones:", error);
-        }
-
-        // Cargar reservas recientes (últimas 5)
-        try {
-          const bookingsResponse = await api.get<any>("/agencies/bookings", {
-            params: { limit: 5, page: 1 }
-          });
-          const bookings = bookingsResponse.data?.bookings || [];
-          setRecentBookings(bookings.slice(0, 5));
-        } catch (error) {
-          console.error("Error al cargar reservas:", error);
-        }
-
-        // Cargar miembros del equipo
+        // Cargar miembros del equipo (si el endpoint existe)
         try {
           const membersResponse = await api.get<any>("/agencies/members");
           const members = membersResponse.data?.members || [];
@@ -213,7 +308,9 @@ function Page() {
         }
       } catch (error: any) {
         console.error("Error al cargar datos del dashboard:", error);
-        toast.error("Error al cargar el dashboard");
+        if (error?.response?.status !== 401 && error?.response?.status !== 403) {
+          toast.error("Error al cargar el dashboard");
+        }
       } finally {
         setLoading(false);
       }
@@ -402,7 +499,7 @@ function Page() {
   };
 
   const chartData = prepareMiniChartData();
-  const displayName = userData?.agencies?.[0]?.agency?.nameAgency || userData?.user?.name || "Agente";
+  const displayName = dashboardData?.agency?.nameAgency || userData?.agencies?.[0]?.agency?.nameAgency || userData?.user?.name || "Agente";
 
   // Componente Skeleton para las métricas
   const StatsSkeleton = () => (
@@ -478,15 +575,15 @@ function Page() {
         }
       />
 
-      <div className="p-8 space-y-8 max-w-7xl mx-auto w-full">
+      <div className="p-6 lg:p-8 space-y-6 lg:space-y-8 max-w-7xl mx-auto w-full">
         {/* Hero Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
           <div>
-            <h2 className="font-caveat text-5xl font-bold text-zinc-900 mb-2">
+            <h2 className="font-caveat text-4xl lg:text-5xl font-bold text-zinc-900 mb-1.5">
               ¡Hola, {displayName}! 👋
             </h2>
-            <p className="text-zinc-600 text-lg">
-              Aquí está el resumen de tu negocio hoy
+            <p className="text-zinc-600 text-base lg:text-lg">
+              Resumen de tu negocio hoy
             </p>
           </div>
           <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
@@ -532,8 +629,9 @@ function Page() {
         {/* Stats Grid */}
         {loading ? (
           <StatsSkeleton />
-        ) : insightsData?.stats ? (
+        ) : dashboardData?.metrics ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Valor Promedio por Reserva */}
             <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-emerald-100/50 to-transparent rounded-bl-full"></div>
               <div className="relative">
@@ -541,53 +639,85 @@ function Page() {
                   <div className="size-12 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-lg">
                     <DollarSign className="size-6" />
                   </div>
-                  <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${getChangeColor(insightsData.stats.avgBookingValue.change)}`}>
-                    {formatChange(insightsData.stats.avgBookingValue.change)}
-                  </span>
+                  {(dashboardData.quickStats?.monthOverMonthChange !== undefined ? (
+                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${getChangeColor(dashboardData.quickStats.monthOverMonthChange)}`}>
+                      {formatChange(dashboardData.quickStats.monthOverMonthChange)}
+                    </span>
+                  ) : insightsData?.stats?.avgBookingValue?.change !== undefined && (
+                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${getChangeColor(insightsData.stats.avgBookingValue.change)}`}>
+                      {formatChange(insightsData.stats.avgBookingValue.change)}
+                    </span>
+                  ))}
                 </div>
                 <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Valor Promedio</p>
                 <h4 className="text-3xl font-bold tracking-tight group-hover:text-emerald-600 transition-colors">
-                  {formatCurrency(insightsData.stats.avgBookingValue.value, insightsData.stats.avgBookingValue.currency)}
+                  {dashboardData.metrics.totalBookings > 0
+                    ? formatCurrency(
+                        Math.round(dashboardData.metrics.totalRevenue / dashboardData.metrics.totalBookings),
+                        dashboardData.metrics.currency
+                      )
+                    : formatCurrency(0, dashboardData.metrics.currency)}
                 </h4>
                 <p className="text-[10px] text-zinc-400 mt-3">Por reserva confirmada</p>
               </div>
             </div>
 
+            {/* Ingresos Totales */}
             <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-indigo-100/50 to-transparent rounded-bl-full"></div>
               <div className="relative">
                 <div className="flex justify-between items-start mb-4">
                   <div className="size-12 rounded-xl bg-linear-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
-                    <Users className="size-6" />
+                    <TrendingUp className="size-6" />
                   </div>
-                  <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${getChangeColor(insightsData.stats.customerLTV.change)}`}>
-                    {formatChange(insightsData.stats.customerLTV.change)}
-                  </span>
+                  {dashboardData.quickStats && dashboardData.quickStats.revenueLastMonth > 0 && (
+                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${getChangeColor(
+                      ((dashboardData.quickStats.revenueThisMonth - dashboardData.quickStats.revenueLastMonth) / dashboardData.quickStats.revenueLastMonth) * 100
+                    )}`}>
+                      {formatChange(
+                        ((dashboardData.quickStats.revenueThisMonth - dashboardData.quickStats.revenueLastMonth) / dashboardData.quickStats.revenueLastMonth) * 100
+                      )}
+                    </span>
+                  )}
+                  {dashboardData.quickStats && dashboardData.quickStats.revenueLastMonth === 0 && dashboardData.quickStats.revenueThisMonth > 0 && (
+                    <span className="text-[10px] px-2 py-1 rounded-full font-bold bg-emerald-50 text-emerald-600">
+                      Nuevo
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Valor de Vida del Cliente</p>
+                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Ingresos Totales</p>
                 <h4 className="text-3xl font-bold tracking-tight group-hover:text-indigo-600 transition-colors">
-                  {formatCurrency(insightsData.stats.customerLTV.value, insightsData.stats.customerLTV.currency)}
+                  {formatCurrency(dashboardData.metrics.totalRevenue, dashboardData.metrics.currency)}
                 </h4>
-                <p className="text-[10px] text-zinc-400 mt-3">Valor promedio por cliente</p>
+                <p className="text-[10px] text-zinc-400 mt-3">
+                  {dashboardData.quickStats ? `${formatCurrency(dashboardData.quickStats.revenueThisMonth, dashboardData.metrics.currency)} este mes` : "Total de ingresos"}
+                </p>
               </div>
             </div>
 
+            {/* Tasa de Conversión */}
             <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-amber-100/50 to-transparent rounded-bl-full"></div>
               <div className="relative">
                 <div className="flex justify-between items-start mb-4">
                   <div className="size-12 rounded-xl bg-linear-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white shadow-lg">
-                    <TrendingUp className="size-6" />
+                    <Users className="size-6" />
                   </div>
-                  <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${getChangeColor(insightsData.stats.conversionRate.change)}`}>
-                    {formatChange(insightsData.stats.conversionRate.change)}
-                  </span>
+                  {insightsData?.stats?.conversionRate?.change !== undefined && (
+                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${getChangeColor(insightsData.stats.conversionRate.change)}`}>
+                      {formatChange(insightsData.stats.conversionRate.change)}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Tasa de Conversión</p>
                 <h4 className="text-3xl font-bold tracking-tight group-hover:text-amber-600 transition-colors">
-                  {insightsData.stats.conversionRate.value.toFixed(2)}%
+                  {dashboardData.metrics.totalBookings > 0
+                    ? ((dashboardData.metrics.confirmedBookings / dashboardData.metrics.totalBookings) * 100).toFixed(1)
+                    : "0.0"}%
                 </h4>
-                <p className="text-[10px] text-zinc-400 mt-3">Reservas confirmadas</p>
+                <p className="text-[10px] text-zinc-400 mt-3">
+                  {dashboardData.metrics.confirmedBookings} de {dashboardData.metrics.totalBookings} confirmadas
+                </p>
               </div>
             </div>
           </div>
@@ -596,21 +726,21 @@ function Page() {
         )}
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Expediciones Activas */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="font-caveat text-3xl font-bold text-zinc-900">
-                  Expediciones Activas
+                <h3 className="font-caveat text-2xl font-bold text-zinc-900">
+                  Expediciones Próximas
                 </h3>
-                <p className="text-sm text-zinc-500 mt-1">Tus viajes más recientes</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Próximas salidas programadas</p>
               </div>
               <button 
                 onClick={() => router.push("/agent/expeditions")}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
               >
-                Ver todas <ArrowRight className="size-4" />
+                Ver todas <ArrowRight className="size-3.5" />
               </button>
             </div>
             
@@ -618,51 +748,93 @@ function Page() {
               <ExpeditionsSkeleton />
             ) : expeditions.length > 0 ? (
               <div className="space-y-3">
-                {expeditions.map((expedition) => (
-                  <div
-                    key={expedition.id}
-                    onClick={() => router.push(`/agent/expeditions`)}
-                    className="p-4 bg-white border border-zinc-200 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
-                  >
-                    <div className="flex gap-4">
-                      <div
-                        className="size-20 rounded-xl bg-zinc-100 bg-cover bg-center shrink-0 shadow-sm"
-                        style={{ backgroundImage: `url('${expedition.image}')` }}
-                      ></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-2">
-                          <h5 className="text-sm font-bold truncate group-hover:text-indigo-600 transition-colors">
-                            {expedition.title}
-                          </h5>
-                          <span className={`text-[10px] font-bold ${getStatusColor(expedition.status)}`}>
+                {expeditions.map((expedition) => {
+                  const startDate = expedition.startDate ? new Date(expedition.startDate) : null;
+                  const endDate = expedition.endDate ? new Date(expedition.endDate) : null;
+                  const daysDiff = startDate && endDate 
+                    ? Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+                    : null;
+                  
+                  return (
+                    <div
+                      key={expedition.id}
+                      onClick={() => router.push(`/agent/expeditions`)}
+                      className="p-5 bg-white border border-zinc-200 rounded-xl hover:border-indigo-300 hover:shadow-lg transition-all cursor-pointer group"
+                    >
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start gap-3 mb-2">
+                              <div className="size-12 rounded-lg bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center shrink-0 shadow-sm">
+                                <MapPin className="size-6 text-white" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className="text-base font-bold text-zinc-900 group-hover:text-indigo-600 transition-colors mb-1">
+                                  {expedition.title}
+                                </h5>
+                                <div className="flex items-center gap-2 text-xs text-zinc-600 mb-2">
+                                  <CalendarRange className="size-3.5" />
+                                  <span>{expedition.location}</span>
+                                  {daysDiff && (
+                                    <span className="text-zinc-400">• {daysDiff} {daysDiff === 1 ? "día" : "días"}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${
+                            expedition.status === "FULL" 
+                              ? "bg-orange-100 text-orange-700"
+                              : expedition.occupancy.percentage >= 80
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-indigo-100 text-indigo-700"
+                          }`}>
                             {getStatusLabel(expedition.status)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-zinc-500 mb-3">
-                          <MapPin className="size-3" />
-                          <span>{expedition.location}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 bg-zinc-100 rounded-full h-2 overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                expedition.occupancy.percentage >= 100 
-                                  ? "bg-orange-500" 
-                                  : expedition.occupancy.percentage >= 80 
-                                  ? "bg-emerald-500" 
-                                  : "bg-indigo-500"
-                              }`}
-                              style={{ width: `${Math.min(expedition.occupancy.percentage, 100)}%` }}
-                            ></div>
+                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-100">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <Users className="size-3.5 text-zinc-500" />
+                              <span className="text-xs font-semibold text-zinc-700">
+                                Ocupación
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-zinc-100 rounded-full h-2.5 overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    expedition.occupancy.percentage >= 100 
+                                      ? "bg-orange-500" 
+                                      : expedition.occupancy.percentage >= 80 
+                                      ? "bg-emerald-500" 
+                                      : "bg-indigo-500"
+                                  }`}
+                                  style={{ width: `${Math.min(expedition.occupancy.percentage, 100)}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-bold text-zinc-900 shrink-0 min-w-[70px] text-right">
+                                {expedition.occupancy.current}/{expedition.occupancy.total}
+                              </span>
+                            </div>
                           </div>
-                          <span className="text-[10px] font-semibold text-zinc-600 ml-3">
-                            {expedition.occupancy.current}/{expedition.occupancy.total} ({expedition.occupancy.percentage}%)
-                          </span>
+                          <div className="text-right">
+                            <div className="text-xs text-zinc-500 mb-0.5">Ocupación</div>
+                            <div className={`text-sm font-bold ${
+                              expedition.occupancy.percentage >= 100 
+                                ? "text-orange-600" 
+                                : expedition.occupancy.percentage >= 80 
+                                ? "text-emerald-600" 
+                                : "text-indigo-600"
+                            }`}>
+                              {expedition.occupancy.percentage}%
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="bg-white border border-zinc-200 rounded-xl p-12 text-center">
@@ -679,8 +851,7 @@ function Page() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
-       
+          <div className="space-y-5">
 
             {/* Mini Revenue Chart */}
             {loading ? (
@@ -770,63 +941,71 @@ function Page() {
 
             {/* Reservas Recientes */}
             {loading ? (
-              <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm animate-pulse">
-                <div className="h-4 w-32 bg-zinc-200 rounded mb-4"></div>
-                <div className="space-y-3">
+              <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm animate-pulse">
+                <div className="h-4 w-32 bg-zinc-200 rounded mb-5"></div>
+                <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center gap-3 pb-3 border-b border-zinc-100">
-                      <div className="size-10 rounded-full bg-zinc-200"></div>
-                      <div className="flex-1">
-                        <div className="h-3 w-24 bg-zinc-200 rounded mb-2"></div>
-                        <div className="h-2 w-32 bg-zinc-200 rounded"></div>
+                    <div key={i}>
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-full bg-zinc-200"></div>
+                        <div className="flex-1">
+                          <div className="h-3 w-24 bg-zinc-200 rounded mb-2"></div>
+                          <div className="h-2 w-32 bg-zinc-200 rounded"></div>
+                        </div>
                       </div>
-                      <div className="h-4 w-16 bg-zinc-200 rounded"></div>
+                      {i < 3 && <div className="h-px bg-zinc-100 mt-3"></div>}
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-bold text-zinc-900">Reservas Recientes</h4>
+              <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <h4 className="text-sm font-semibold text-zinc-900">Reservas Recientes</h4>
                   <button 
                     onClick={() => router.push("/agent/bookings")}
-                    className="text-xs text-indigo-600 hover:text-indigo-700"
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                   >
-                    Ver todas
+                    Ver todas →
                   </button>
                 </div>
                 {recentBookings.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {recentBookings.map((booking) => (
-                      <div key={booking.id} className="flex items-center gap-3 pb-3 border-b border-zinc-100 last:border-0 last:pb-0">
-                        <div
-                          className="size-10 rounded-full bg-zinc-100 bg-cover bg-center shrink-0 border-2 border-white shadow-sm"
-                          style={{ backgroundImage: `url('${booking.traveler.avatar}')` }}
-                        ></div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-zinc-900 truncate">
-                            {booking.traveler.name}
-                          </p>
-                          <p className="text-[10px] text-zinc-500 truncate">
-                            {booking.expedition}
-                          </p>
-                          <p className="text-[10px] text-zinc-400 mt-1">
-                            {booking.departure}
-                          </p>
+                      <div 
+                        key={booking.id} 
+                        className="group cursor-pointer"
+                        onClick={() => router.push("/agent/bookings")}
+                      >
+                        <div className="flex items-center gap-3 py-2">
+                          <div className="size-10 rounded-full bg-linear-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white font-semibold text-xs shrink-0">
+                            {booking.traveler.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-sm font-semibold text-zinc-900 group-hover:text-indigo-600 transition-colors">
+                                {booking.traveler.name}
+                              </p>
+                              <span className={`size-2 rounded-full ${
+                                booking.status === "confirmed" 
+                                  ? "bg-emerald-500" 
+                                  : booking.status === "pending"
+                                  ? "bg-amber-500"
+                                  : "bg-zinc-400"
+                              }`}></span>
+                            </div>
+                            <p className="text-xs text-zinc-500 truncate">
+                              {booking.expedition}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-zinc-400">{booking.departure}</span>
+                              <span className="text-sm font-bold text-zinc-900">{booking.total}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-bold text-zinc-900">{booking.total}</p>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${
-                            booking.status === "confirmed" 
-                              ? "bg-emerald-50 text-emerald-600" 
-                              : booking.status === "pending"
-                              ? "bg-amber-50 text-amber-600"
-                              : "bg-zinc-50 text-zinc-600"
-                          }`}>
-                            {booking.status === "confirmed" ? "✓" : booking.status === "pending" ? "⏳" : "✗"}
-                          </span>
-                        </div>
+                        {booking.id !== recentBookings[recentBookings.length - 1].id && (
+                          <div className="h-px bg-zinc-100 mt-3"></div>
+                        )}
                       </div>
                     ))}
                   </div>

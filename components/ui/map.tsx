@@ -388,7 +388,14 @@ function MarkerContent({ children, className }: MarkerContentProps) {
   const { marker } = useMarkerContext();
 
   return createPortal(
-    <div className={cn("relative cursor-pointer", className)}>
+    <div 
+      className={cn("relative cursor-pointer", className)}
+      style={{ 
+        minWidth: 'fit-content',
+        minHeight: 'fit-content',
+        display: 'inline-block'
+      }}
+    >
       {children || <DefaultMarkerIcon />}
     </div>,
     marker.getElement()
@@ -517,17 +524,55 @@ function MarkerTooltip({
 
     tooltip.setDOMContent(container);
 
+    let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const handleMouseEnter = () => {
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
       tooltip.setLngLat(marker.getLngLat()).addTo(map);
     };
-    const handleMouseLeave = () => tooltip.remove();
+    
+    const handleMouseLeave = () => {
+      // Pequeño delay para permitir que el mouse se mueva al tooltip
+      hoverTimeout = setTimeout(() => {
+        tooltip.remove();
+      }, 100);
+    };
 
-    marker.getElement()?.addEventListener("mouseenter", handleMouseEnter);
-    marker.getElement()?.addEventListener("mouseleave", handleMouseLeave);
+    // Mantener el tooltip abierto cuando el mouse está sobre él
+    const handleTooltipMouseEnter = () => {
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
+    };
+
+    const handleTooltipMouseLeave = () => {
+      tooltip.remove();
+    };
+
+    const markerElement = marker.getElement();
+    if (markerElement) {
+      markerElement.addEventListener("mouseenter", handleMouseEnter);
+      markerElement.addEventListener("mouseleave", handleMouseLeave);
+    }
+
+    // Escuchar eventos en el contenedor del tooltip
+    container.addEventListener("mouseenter", handleTooltipMouseEnter);
+    container.addEventListener("mouseleave", handleTooltipMouseLeave);
 
     return () => {
-      marker.getElement()?.removeEventListener("mouseenter", handleMouseEnter);
-      marker.getElement()?.removeEventListener("mouseleave", handleMouseLeave);
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+      }
+      if (markerElement) {
+        markerElement.removeEventListener("mouseenter", handleMouseEnter);
+        markerElement.removeEventListener("mouseleave", handleMouseLeave);
+      }
+      container.removeEventListener("mouseenter", handleTooltipMouseEnter);
+      container.removeEventListener("mouseleave", handleTooltipMouseLeave);
       tooltip.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -546,12 +591,15 @@ function MarkerTooltip({
     prevTooltipOptions.current = popupOptions;
   }
 
+  // Si se pasa un className personalizado, no usar las clases por defecto de fondo/texto/padding
+  const defaultClasses = className
+    ? "text-xs shadow-md animate-in fade-in-0 zoom-in-95"
+    : "rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95";
+
   return createPortal(
     <div
-      className={cn(
-        "rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95",
-        className
-      )}
+      className={cn(defaultClasses, className)}
+      style={{ cursor: 'pointer' }}
     >
       {children}
     </div>,

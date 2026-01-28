@@ -103,9 +103,58 @@ export default function AnfitrionPage() {
 
         // Cargar datos del dashboard
         try {
-          const dashboardResponse = await api.get<DashboardData>("/hosts/dashboard");
+          const dashboardResponse = await api.get<any>("/hosts/dashboard");
           if (dashboardResponse?.data) {
-            setDashboardData(dashboardResponse.data);
+            const data = dashboardResponse.data;
+            console.log("📊 Datos recibidos del dashboard:", data);
+            
+            const summary = data.summary || {};
+            const topExperiencesData = data.topExperiences?.byRevenue || data.topExperiences?.byFavorites || [];
+            const recentBookingsData = data.recentBookings || [];
+            
+            // Mapear los datos a la estructura esperada
+            // Los datos vienen en data.summary según la estructura del backend
+            const mappedData = {
+              stats: {
+                totalEarnings: summary.totalEarnings !== undefined ? summary.totalEarnings : (data.totalEarnings !== undefined ? data.totalEarnings : 0),
+                averageRating: summary.averageRating !== undefined ? summary.averageRating : (data.averageRating !== undefined ? data.averageRating : 0),
+                conversionRate: summary.conversionRate !== undefined ? summary.conversionRate : (data.conversionRate !== undefined ? data.conversionRate : 0),
+                totalBookings: summary.totalBookings !== undefined ? summary.totalBookings : (data.totalBookings !== undefined ? data.totalBookings : 0),
+                totalExperiences: summary.totalExperiences !== undefined ? summary.totalExperiences : (data.totalExperiences !== undefined ? data.totalExperiences : 0),
+                totalViews: summary.totalFavorites !== undefined ? summary.totalFavorites : (data.totalFavorites !== undefined ? data.totalFavorites : 0),
+              },
+              monthlyRevenue: data.monthlyRevenue || [],
+              recentBookings: recentBookingsData.map((booking: any) => ({
+                idBooking: booking.idBooking || booking.id,
+                experience: {
+                  title: booking.tripTitle || booking.experience?.title || "Experiencia",
+                },
+                customer: {
+                  name: booking.customer?.name || "Cliente",
+                  email: booking.customer?.email || "",
+                },
+                totalBuy: booking.totalBuy || booking.total || 0,
+                currency: booking.currency || "COP",
+                dateBuy: booking.dateBuy || booking.createdAt || new Date().toISOString(),
+                status: booking.status || "PENDING",
+              })),
+              topExperiences: topExperiencesData.slice(0, 3).map((exp: any) => ({
+                id: exp.idTrip || exp.id,
+                title: exp.title,
+                coverImage: exp.coverImage || null,
+                stats: {
+                  totalBookings: exp.stats?.totalBookings || exp.totalBookings || 0,
+                  totalReviews: exp.stats?.totalReviews || exp.totalReviews || 0,
+                  averageRating: exp.stats?.averageRating ?? exp.averageRating ?? null,
+                  revenueRaw: exp.stats?.revenueRaw || exp.revenue || 0,
+                },
+                price: exp.price || 0,
+                currency: exp.currency || "COP",
+              })),
+            };
+            
+            console.log("✅ Datos mapeados:", mappedData);
+            setDashboardData(mappedData);
           }
         } catch (error: any) {
           console.error("Error al cargar dashboard:", error);
@@ -114,22 +163,41 @@ export default function AnfitrionPage() {
             const analyticsResponse = await api.get("/experiences/analytics");
             if (analyticsResponse?.data) {
               const analytics = analyticsResponse.data;
+              const summary = analytics.summary || {};
               setDashboardData({
                 stats: {
-                  totalEarnings: analytics.totalEarnings || 0,
-                  averageRating: analytics.averageRating || 0,
-                  conversionRate: analytics.conversionRate || 0,
-                  totalBookings: analytics.experiences?.reduce((sum: number, exp: any) => sum + (exp.stats?.totalBookings || 0), 0) || 0,
-                  totalExperiences: analytics.experiences?.length || 0,
-                  totalViews: analytics.experiences?.reduce((sum: number, exp: any) => sum + (exp.stats?.totalFavorites || 0) * 10, 0) || 0,
+                  totalEarnings: summary.totalEarnings || analytics.totalEarnings || 0,
+                  averageRating: summary.averageRating || analytics.averageRating || 0,
+                  conversionRate: summary.conversionRate || analytics.conversionRate || 0,
+                  totalBookings: summary.totalBookings || analytics.totalBookings || 0,
+                  totalExperiences: summary.totalExperiences || analytics.totalExperiences || 0,
+                  totalViews: summary.totalFavorites || analytics.totalFavorites || 0,
                 },
                 monthlyRevenue: analytics.monthlyRevenue || [],
-                recentBookings: [],
-                topExperiences: (analytics.experiences || []).slice(0, 3).map((exp: any) => ({
-                  id: exp.id,
+                recentBookings: (analytics.recentBookings || []).map((booking: any) => ({
+                  idBooking: booking.idBooking || booking.id,
+                  experience: {
+                    title: booking.tripTitle || booking.experience?.title || "Experiencia",
+                  },
+                  customer: {
+                    name: booking.customer?.name || "Cliente",
+                    email: booking.customer?.email || "",
+                  },
+                  totalBuy: booking.totalBuy || booking.total || 0,
+                  currency: booking.currency || "COP",
+                  dateBuy: booking.dateBuy || booking.createdAt || new Date().toISOString(),
+                  status: booking.status || "PENDING",
+                })),
+                topExperiences: (analytics.topExperiences?.byRevenue || analytics.experiences || []).slice(0, 3).map((exp: any) => ({
+                  id: exp.idTrip || exp.id,
                   title: exp.title,
-                  coverImage: null,
-                  stats: exp.stats,
+                  coverImage: exp.coverImage || null,
+                  stats: {
+                    totalBookings: exp.stats?.totalBookings || exp.totalBookings || 0,
+                    totalReviews: exp.stats?.totalReviews || exp.totalReviews || 0,
+                    averageRating: exp.stats?.averageRating || exp.averageRating || null,
+                    revenueRaw: exp.stats?.revenueRaw || exp.revenue || 0,
+                  },
                   price: exp.price || 0,
                   currency: exp.currency || "COP",
                 })),
@@ -248,7 +316,7 @@ export default function AnfitrionPage() {
           {/* Header */}
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-5xl font-caveat text-primary mb-2">
+              <h1 className="text-5xl font-caveat font-bold mb-2">
                 Bienvenido de vuelta, {userName}
               </h1>
               <p className="text-zinc-500 text-sm">
@@ -558,7 +626,7 @@ export default function AnfitrionPage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6">
+          <div className="bg-linear-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-zinc-900 mb-1">Acciones Rápidas</h3>

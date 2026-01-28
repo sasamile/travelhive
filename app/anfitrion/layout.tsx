@@ -15,6 +15,7 @@ import {
   User,
   LogOut,
   ChevronDown,
+  Tent,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -105,14 +106,12 @@ export default function AnfitrionLayout({
     <div className="flex h-screen overflow-hidden bg-white">
       {/* Sidebar */}
       <aside className="w-64 border-r border-zinc-200 flex flex-col justify-between py-8 bg-white">
-        <div className="px-8">
-          <div className="flex items-center gap-2 mb-12">
-            <div className="size-7 bg-primary rounded-md flex items-center justify-center text-white">
-              <span className="text-sm font-bold">H</span>
-            </div>
+        <div>
+          <Link href="/anfitrion" className="flex items-center px-8 gap-2 mb-12 border-b border-zinc-200 pb-[19px]">
+            <Tent className="size-5" />
             <h2 className="text-xl font-bold tracking-tight font-caveat">TravelHive</h2>
-          </div>
-          <nav className="space-y-1">
+          </Link>
+          <nav className="space-y-1 px-6">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
@@ -133,20 +132,7 @@ export default function AnfitrionLayout({
             })}
           </nav>
         </div>
-        <div className="px-8">
-          <div className="p-4 bg-zinc-50 rounded-2xl mb-6">
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">
-              Soporte
-            </p>
-            <p className="text-xs text-zinc-500 leading-relaxed">
-              ¿Necesitas ayuda con tus listados? Consulta nuestra guía para creadores.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 px-3 py-2 text-zinc-500 cursor-pointer hover:text-primary">
-            <Settings className="size-5" />
-            <span className="text-sm">Configuración</span>
-          </div>
-        </div>
+
       </aside>
 
       {/* Main Content */}
