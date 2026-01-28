@@ -37,6 +37,8 @@ function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<PublicTripsResponse | null>(null);
   const [tripsLoading, setTripsLoading] = useState(true);
+  const [experiences, setExperiences] = useState<PublicTripsResponse | null>(null);
+  const [experiencesLoading, setExperiencesLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -57,49 +59,39 @@ function CustomersPage() {
   useEffect(() => {
     const fetchTrips = async () => {
       try {
-        // Obtener viajes publicados de las agencias
-        // Intentar primero con /trips (endpoint público)
-        const baseURL =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-        console.log(
-          "🔍 Intentando cargar viajes desde:",
-          `${baseURL}/trips?limit=12`,
-        );
-
-        const response = await api.get<PublicTripsResponse>("/trips?limit=12");
+        // Obtener viajes publicados usando el nuevo endpoint /trips/all
+        const response = await api.get<PublicTripsResponse>("/trips/all?limit=12");
         console.log("✅ Viajes cargados exitosamente:", response.data);
         setTrips(response.data);
       } catch (error: any) {
         console.error("❌ Error al cargar viajes:", error);
         console.error("URL intentada:", error.config?.url);
         console.error("Status:", error.response?.status);
-        console.error("Base URL:", error.config?.baseURL);
-
-        // Si falla, intentar con /public/trips como alternativa
-        if (error.response?.status === 404) {
-          try {
-            console.log(
-              "🔄 Intentando con endpoint alternativo: /public/trips",
-            );
-            const altResponse = await api.get<PublicTripsResponse>(
-              "/public/trips?limit=12",
-            );
-            console.log(
-              "✅ Viajes cargados con endpoint alternativo:",
-              altResponse.data,
-            );
-            setTrips(altResponse.data);
-          } catch (altError: any) {
-            console.error("❌ Error con endpoint alternativo:", altError);
-            console.error("URL alternativa intentada:", altError.config?.url);
-          }
-        }
       } finally {
         setTripsLoading(false);
       }
     };
 
     fetchTrips();
+  }, []);
+
+  useEffect(() => {
+    const fetchExperiences = async () => {
+      try {
+        // Obtener experiencias publicadas usando el nuevo endpoint /experiences/all
+        const response = await api.get<PublicTripsResponse>("/experiences/all?limit=12");
+        console.log("✅ Experiencias cargadas exitosamente:", response.data);
+        setExperiences(response.data);
+      } catch (error: any) {
+        console.error("❌ Error al cargar experiencias:", error);
+        console.error("URL intentada:", error.config?.url);
+        console.error("Status:", error.response?.status);
+      } finally {
+        setExperiencesLoading(false);
+      }
+    };
+
+    fetchExperiences();
   }, []);
 
   return (
@@ -112,16 +104,6 @@ function CustomersPage() {
           <SearchBar />
         </div>
 
-        <div className="mb-10 mt-24 text-center md:text-left">
-          <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-[#121717] dark:text-white md:text-4xl">
-            Inspiración para tu próximo viaje
-          </h2>
-          <p className="mt-2 text-lg text-gray-500">
-            Descubre experiencias exclusivas diseñadas para ti
-          </p>
-        </div>
-
-        <InspirationGrid />
 
         {/* Sección de viajes disponibles */}
         <div className="mb-10 mt-24">
@@ -162,6 +144,50 @@ function CustomersPage() {
             <div className="text-center py-12">
               <p className="text-gray-500 dark:text-gray-400">
                 No hay viajes disponibles en este momento
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Sección de experiencias disponibles */}
+        <div className="mb-10 mt-24">
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-[#121717] dark:text-white md:text-4xl">
+                Experiencias disponibles
+              </h2>
+              <p className="mt-2 text-lg text-gray-500">
+                Descubre experiencias únicas creadas por anfitriones locales
+              </p>
+            </div>
+            <Link
+              href="/customers/search"
+              className="flex items-center gap-1 text-sm font-bold text-primary hover:underline"
+            >
+              Ver todas
+              <ChevronRight className="text-sm" />
+            </Link>
+          </div>
+
+          {experiencesLoading ? (
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="aspect-4/3 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-800"
+                />
+              ))}
+            </div>
+          ) : experiences && experiences.data.length > 0 ? (
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {experiences.data.map((experience) => (
+                <PublicTripCard key={experience.idTrip} trip={experience} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500 dark:text-gray-400">
+                No hay experiencias disponibles en este momento
               </p>
             </div>
           )}

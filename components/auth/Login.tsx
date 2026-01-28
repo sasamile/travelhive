@@ -82,15 +82,30 @@ function Login() {
       // Determinar el rol del usuario basado en la respuesta
       let redirectPath = "/";
       
-      // Verificar si tiene agencias (puede estar en loginData.agencies o response.data.agencies)
-      const agencies = loginData.agencies || loginData.data?.agencies;
+      // Obtener información del usuario y agencias
+      const user = loginData.user || loginData.data?.user;
+      const agencies = loginData.agencies || loginData.data?.agencies || [];
       
-      if (agencies && Array.isArray(agencies) && agencies.length > 0) {
-        // Si tiene agencias, es un agente/admin/anfitrión
-        redirectPath = "/agent";
+      // Verificar si es super admin - tiene prioridad sobre todo
+      if (user?.isSuperAdmin === true) {
+        redirectPath = "/superadmin";
       } else {
-        // Si no tiene agencias, es un customer/viajero
-        redirectPath = "/customers";
+        // Verificar si es jipper (keeper) - tiene rol "jipper" en alguna agencia
+        const isJipper = agencies && Array.isArray(agencies) && agencies.some((agency: any) => agency.role === "jipper");
+        
+        if (isJipper) {
+          // Si es jipper, redirigir a /keepers
+          redirectPath = "/keepers";
+        } else if (user?.isHost === true && (!agencies || !Array.isArray(agencies) || agencies.length === 0)) {
+          // Si es anfitrión pero no tiene agencias, redirigir a /anfitrion
+          redirectPath = "/anfitrion";
+        } else if (agencies && Array.isArray(agencies) && agencies.length > 0) {
+          // Si tiene agencias, es un agente/admin/anfitrión con agencia
+          redirectPath = "/agent";
+        } else {
+          // Si no es anfitrión y no tiene agencias, es un customer/viajero
+          redirectPath = "/customers";
+        }
       }
 
       // Redirigir usando window.location para forzar recarga completa y evitar loops

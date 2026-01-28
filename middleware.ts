@@ -30,9 +30,11 @@ const publicRoutes = [
   "/auth/login",
   "/auth/register",
   "/auth/complete-profile",
+  "/auth/callback", // Callback de OAuth - necesita acceso para verificar y redirigir
   "/", // Página principal puede ser pública
   "/customers", // Página de búsqueda pública
   "/customers/search", // Búsqueda es pública
+  "/keepers", // Página de Keepers (guardias) - pública
 ];
 
 // Rutas que requieren autenticación pero son específicas

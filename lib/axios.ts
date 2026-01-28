@@ -18,6 +18,28 @@ api.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
+    // Si el data es FormData, eliminar Content-Type para que el navegador lo establezca automáticamente
+    if (config.data instanceof FormData) {
+      // Eliminar Content-Type para que el navegador establezca el boundary correcto
+      // Esto es crítico para multipart/form-data
+      if (config.headers) {
+        delete config.headers["Content-Type"];
+        delete config.headers["content-type"];
+      }
+      // Log para debugging
+      try {
+        const formDataEntries = Array.from((config.data as FormData).entries());
+        const imageEntries = formDataEntries.filter(([key]) => key === "galleryImages");
+        console.log("🔍 Axios interceptor - FormData detectado:", {
+          totalFields: formDataEntries.length,
+          imageFields: imageEntries.length,
+          imageNames: imageEntries.map(([, value]) => value instanceof File ? value.name : "no-file"),
+          hasContentType: !!(config.headers?.["Content-Type"] || config.headers?.["content-type"]),
+        });
+      } catch (e) {
+        console.log("🔍 Axios interceptor - FormData detectado (error al leer):", e);
+      }
+    }
     return config;
   },
   (error) => {

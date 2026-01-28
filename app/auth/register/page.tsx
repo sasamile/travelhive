@@ -86,6 +86,7 @@ const agencySteps = [
 ];
 
 function HostRegisterForm() {
+  const router = useRouter();
   const [hostType, setHostType] = useState<"agency" | "person">("agency");
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -240,13 +241,33 @@ function HostRegisterForm() {
           return;
         }
 
-        // Simular registro (sin backend)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        toast.success("Formulario validado correctamente. (Backend no implementado)");
+        // Extraer teléfono de direccionTelefono si está disponible
+        const phoneMatch = formData.direccionTelefono?.match(/(\+?\d[\d\s-]+)/);
+        const phone = phoneMatch ? phoneMatch[0].trim() : "";
+
+        // Llamar al endpoint de registro de agencia
+        const response = await api.post("/agencies/register", {
+          emailUser: formData.emailCorporativo,
+          nameUser: formData.nombreComercial, // Usar nombre comercial como nombre del usuario
+          password: formData.password,
+          dniUser: formData.nit.replace(/-/g, ""), // Usar NIT sin guiones como documento
+          phoneUser: phone || formData.direccionTelefono || "",
+          nameAgency: formData.nombreComercial,
+          phone: phone || formData.direccionTelefono || "",
+          nit: formData.nit,
+          rntNumber: formData.rnt,
+        });
+
+        if (response.data) {
+          toast.success("Agencia registrada exitosamente. Pendiente de aprobación.");
+          setTimeout(() => {
+            router.push("/auth/login");
+          }, 2000);
+        }
       } else {
-        // Validar campos requeridos para agente
+        // Validar campos requeridos para persona natural
         if (!formData.fullName || !formData.documento || !formData.email ||
-          !formData.password) {
+          !formData.password || !formData.telefono || !formData.ciudadDepartamento) {
           toast.error("Por favor completa todos los campos requeridos");
           setLoading(false);
           return;
@@ -265,12 +286,35 @@ function HostRegisterForm() {
           return;
         }
 
-        // Simular registro (sin backend)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        toast.success("Formulario validado correctamente. (Backend no implementado)");
+        // Extraer ciudad y departamento de ciudadDepartamento
+        const locationParts = formData.ciudadDepartamento.split(",").map(s => s.trim());
+        const city = locationParts[0] || "";
+        const department = locationParts[1] || locationParts[0] || "";
+
+        // Llamar al endpoint de registro de anfitrión
+        const response = await api.post("/auth/register-host", {
+          nameUser: formData.fullName,
+          dniUser: formData.documento,
+          emailUser: formData.email,
+          password: formData.password,
+          phoneUser: formData.telefono,
+          city: city,
+          department: department,
+        });
+
+        if (response.data) {
+          toast.success("Anfitrión registrado exitosamente. Ya puedes iniciar sesión.");
+          setTimeout(() => {
+            router.push("/auth/login");
+          }, 2000);
+        }
       }
     } catch (err: any) {
-      toast.error("Error al procesar el formulario");
+      const errorMessage = err?.response?.data?.message || 
+                          err?.response?.data?.error ||
+                          err?.message ||
+                          "Error al procesar el formulario";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -423,6 +467,7 @@ function HostRegisterForm() {
 }
 
 function UserRegisterForm() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -472,6 +517,13 @@ function UserRegisterForm() {
     setLoading(true);
 
     try {
+      // Validar campos requeridos
+      if (!formData.fullName || !formData.email || !formData.password) {
+        toast.error("Por favor completa todos los campos requeridos");
+        setLoading(false);
+        return;
+      }
+
       // Validar contraseñas
       if (formData.password !== formData.confirmPassword) {
         toast.error("Las contraseñas no coinciden");
@@ -485,11 +537,28 @@ function UserRegisterForm() {
         return;
       }
 
-      // Simular registro (sin backend)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success("Formulario validado correctamente. (Backend no implementado)");
+      // Llamar al endpoint de registro
+      const response = await api.post("/auth/sign-up/email", {
+        email: formData.email,
+        password: formData.password,
+        name: formData.fullName,
+      });
+
+      // Si el registro es exitoso
+      if (response.data) {
+        toast.success("¡Cuenta creada exitosamente! Redirigiendo...");
+        
+        // Redirigir al login o directamente a la página de clientes
+        setTimeout(() => {
+          router.push("/auth/login");
+        }, 1500);
+      }
     } catch (err: any) {
-      toast.error("Error al procesar el formulario");
+      const errorMessage = err?.response?.data?.message || 
+                          err?.response?.data?.error ||
+                          err?.message ||
+                          "Error al crear la cuenta. Por favor intenta nuevamente.";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -611,7 +680,7 @@ function RegisterPage() {
       const frontendURL = typeof window !== "undefined" 
         ? `${window.location.protocol}//${window.location.host}` 
         : "http://localhost:3001";
-      const callbackURL = `${frontendURL}/customers`;
+      const callbackURL = `${frontendURL}/auth/callback`;
       
       const response = await api.post("/api/auth/sign-in/social", {
         provider: "google",

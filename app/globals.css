@@ -192,3 +192,48 @@
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+/* Estilos para el stepper del modal de estadísticas */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e4e4e7;
+  border-radius: 10px;
+}
+
+/* Estilos para el dashboard de anfitrión */
+.glass-map {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.stepper-active {
+  @apply text-primary;
+}
+
+.stepper-active .step-icon {
+  @apply bg-primary text-white border-primary shadow-sm;
+}
+
+.stepper-pending {
+  @apply text-zinc-400;
+}
+
+.stepper-pending .step-icon {
+  @apply bg-white text-zinc-400 border-zinc-200;
+}
+
+.stepper-completed {
+  @apply text-zinc-900;
+}
+
+.stepper-completed .step-icon {
+  @apply bg-indigo-50 text-primary border-indigo-100;
+}

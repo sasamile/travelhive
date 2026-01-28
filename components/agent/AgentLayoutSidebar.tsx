@@ -66,6 +66,12 @@ const navigationItems = [
     icon: Shield,
     section: "management",
   },
+  {
+    href: "/agent/experiencias",
+    label: "Experiencias",
+    icon: Tent,
+    section: "management",
+  },
 ];
 
 interface UserData {

@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Circle,
   ArrowRight,
-  Loader2,
   AlertCircle,
 } from "lucide-react";
 import { AgentHeader } from "@/components/agent/AgentHeader";
@@ -185,12 +184,97 @@ export default function InsightsPage() {
 
         <div className="p-8 space-y-8 max-w-7xl mx-auto w-full">
           {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <div className="flex flex-col items-center gap-4">
-                <Loader2 className="size-8 animate-spin text-indigo-600" />
-                <p className="text-sm text-zinc-500">Cargando insights...</p>
+            <>
+              {/* Stats Grid Skeleton */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white border border-zinc-200 p-6 rounded-xl shadow-sm animate-pulse">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="size-10 rounded-lg bg-zinc-200"></div>
+                      <div className="h-5 w-16 rounded-full bg-zinc-200"></div>
+                    </div>
+                    <div className="h-3 w-32 bg-zinc-200 rounded mb-2"></div>
+                    <div className="h-8 w-40 bg-zinc-200 rounded mb-4"></div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1 bg-zinc-100 rounded-full">
+                        <div className="h-full bg-zinc-200 rounded-full w-1/2"></div>
+                      </div>
+                      <div className="h-3 w-20 bg-zinc-200 rounded"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+
+              {/* Revenue Growth Chart Skeleton */}
+              <div className="bg-white border border-zinc-200 rounded-xl p-8 shadow-sm animate-pulse">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <div className="h-8 w-48 bg-zinc-200 rounded mb-2"></div>
+                    <div className="h-4 w-64 bg-zinc-200 rounded"></div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="h-4 w-24 bg-zinc-200 rounded"></div>
+                    <div className="h-4 w-24 bg-zinc-200 rounded"></div>
+                  </div>
+                </div>
+                <div className="h-72 bg-zinc-50 rounded-lg flex items-end justify-around p-4">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div
+                      key={i}
+                      className="w-8 bg-zinc-200 rounded-t"
+                      style={{
+                        height: `${Math.random() * 60 + 20}%`,
+                        animationDelay: `${i * 0.1}s`,
+                      }}
+                    ></div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bottom Grid Skeleton */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Top Destinations Skeleton */}
+                <div className="bg-white border border-zinc-200 rounded-xl p-8 shadow-sm animate-pulse">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="h-8 w-64 bg-zinc-200 rounded"></div>
+                    <div className="h-4 w-24 bg-zinc-200 rounded"></div>
+                  </div>
+                  <div className="space-y-6">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between">
+                          <div className="h-4 w-32 bg-zinc-200 rounded"></div>
+                          <div className="h-4 w-24 bg-zinc-200 rounded"></div>
+                        </div>
+                        <div className="h-2 bg-zinc-100 rounded-full">
+                          <div
+                            className="h-full bg-zinc-200 rounded-full"
+                            style={{ width: `${Math.random() * 40 + 30}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Optimization Checklist Skeleton */}
+                <div className="bg-white border border-zinc-200 rounded-xl p-8 shadow-sm animate-pulse">
+                  <div className="h-8 w-64 bg-zinc-200 rounded mb-6"></div>
+                  <div className="space-y-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="flex gap-4 p-4 rounded-xl border border-zinc-50">
+                        <div className="size-5 rounded-full bg-zinc-200 shrink-0"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-3/4 bg-zinc-200 rounded"></div>
+                          <div className="h-3 w-full bg-zinc-200 rounded"></div>
+                          <div className="h-3 w-2/3 bg-zinc-200 rounded"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
           ) : !insightsData ? (
             <div className="flex items-center justify-center py-24">
               <div className="flex flex-col items-center gap-4">

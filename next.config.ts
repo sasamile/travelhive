@@ -58,6 +58,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/trips/:path*`,
       },
       {
+        source: "/experiences/:path*",
+        destination: `${backendUrl}/experiences/:path*`,
+      },
+      {
         source: "/public/:path*",
         destination: `${backendUrl}/public/:path*`,
       },

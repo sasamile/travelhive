@@ -523,33 +523,7 @@ function Page() {
               </div>
             </div>
 
-            <div className="bg-white border border-[#F4F4F5] rounded-xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="size-12 rounded-full bg-indigo-50 flex items-center justify-center text-primary">
-                  <ShieldCheck className="size-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="font-caveat text-xl font-bold">
-                    Completa la configuración de tu perfil de pagos
-                  </h4>
-                  <p className="text-xs text-[#71717A]">
-                    Tienes 3 pagos pendientes esperando ser procesados.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="w-48 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: '75%' }}
-                  ></div>
-                </div>
-                <span className="font-caveat text-xl text-primary font-bold">75%</span>
-                <button className="text-xs font-bold text-zinc-900 underline underline-offset-4 decoration-zinc-300 hover:decoration-primary transition-all">
-                  Completar Configuración
-                </button>
-              </div>
-            </div>
+         
           </div>
       </main>
     </>

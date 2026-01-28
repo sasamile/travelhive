@@ -16,6 +16,7 @@ type BookingCardProps = {
   startDateFallback?: string | null;
   endDateFallback?: string | null;
   maxPersons?: number | null;
+  promoterCode?: string;
 };
 
 export function BookingCard({
@@ -26,6 +27,7 @@ export function BookingCard({
   startDateFallback,
   endDateFallback,
   maxPersons,
+  promoterCode,
 }: BookingCardProps) {
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "A confirmar";
@@ -110,6 +112,15 @@ export function BookingCard({
   const [children, setChildren] = useState(0);
   const [discountCode, setDiscountCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [validatingDiscount, setValidatingDiscount] = useState(false);
+  const [discountData, setDiscountData] = useState<{
+    isValid: boolean;
+    code: string;
+    originalSubtotal: number;
+    discountAmount: number;
+    total: number;
+    currency: string;
+  } | null>(null);
 
   // Para reservar "desde viaje" cuando no hay expediciones
   // Calcular la fecha mínima: máximo entre la fecha actual y la fecha de inicio del viaje
@@ -190,12 +201,37 @@ export function BookingCard({
   const isOverMax = maxAllowed !== null && persons > maxAllowed;
   const isAtMax = effectiveMax !== null && persons >= effectiveMax;
 
+  // Calcular precio total con descuento aplicado
+  const calculateTotalPrice = () => {
+    if (!displayPrice) return null;
+    
+    const priceAdult = displayPrice;
+    const priceChild = priceAdult * 0.7; // 70% del precio de adulto
+    const subtotal = (priceAdult * adults) + (priceChild * children);
+    
+    // Si hay un código de descuento válido aplicado, usar ese total
+    if (discountData?.isValid) {
+      return discountData.total;
+    }
+    
+    return subtotal;
+  };
+
+  const finalPrice = calculateTotalPrice();
+  const originalSubtotal = displayPrice 
+    ? (displayPrice * adults) + (displayPrice * 0.7 * children)
+    : null;
+
   const bumpAdults = (delta: number) => {
     if (delta > 0 && effectiveMax !== null && persons + delta > effectiveMax) {
       toast.error(`Máximo ${effectiveMax} persona(s)`);
       return;
     }
     setAdults((v) => Math.max(0, v + delta));
+    // Limpiar descuento cuando cambian las personas
+    if (discountData) {
+      setDiscountData(null);
+    }
   };
 
   const bumpChildren = (delta: number) => {
@@ -204,6 +240,68 @@ export function BookingCard({
       return;
     }
     setChildren((v) => Math.max(0, v + delta));
+    // Limpiar descuento cuando cambian las personas
+    if (discountData) {
+      setDiscountData(null);
+    }
+  };
+
+  // Función para validar y aplicar código de descuento
+  const validateAndApplyDiscount = async () => {
+    if (!discountCode.trim()) {
+      toast.error("Ingresa un código de descuento");
+      return;
+    }
+
+    if (!fromTripStart || !fromTripEnd) {
+      toast.error("Selecciona las fechas de tu viaje primero");
+      return;
+    }
+
+    if (persons === 0) {
+      toast.error("Selecciona al menos una persona");
+      return;
+    }
+
+    try {
+      setValidatingDiscount(true);
+      
+      const startIso = buildIsoWithFallbackTime(fromTripStart, startDateFallback);
+      const endIso = buildIsoWithFallbackTime(fromTripEnd, endDateFallback);
+
+      const response = await api.post("/bookings/validate-discount", {
+        idTrip,
+        startDate: startIso,
+        endDate: endIso,
+        adults,
+        children,
+        discountCode: discountCode.trim().toUpperCase(),
+      });
+
+      if (response.data?.data?.isValid) {
+        setDiscountData(response.data.data);
+        toast.success("¡Código de descuento aplicado!");
+      } else {
+        setDiscountData(null);
+        toast.error(response.data?.message || "Código de descuento inválido");
+      }
+    } catch (err: any) {
+      setDiscountData(null);
+      const errorMessage = err?.response?.data?.message || 
+                          err?.message || 
+                          "No se pudo validar el código de descuento";
+      toast.error(errorMessage);
+    } finally {
+      setValidatingDiscount(false);
+    }
+  };
+
+  // Limpiar descuento cuando cambia el código manualmente
+  const handleDiscountCodeChange = (value: string) => {
+    setDiscountCode(value);
+    if (discountData) {
+      setDiscountData(null);
+    }
   };
 
   const canReserve =
@@ -261,15 +359,36 @@ export function BookingCard({
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-2xl shadow-gray-200/50 dark:shadow-none">
       <div className="mb-8 space-y-3">
-        <div className="space-y-1">
-          <div className="flex items-end gap-2 max-w-full">
-            <span className="text-xl md:text-3xl font-extrabold text-primary leading-none wrap-break-word">
-              {formatAmount(displayPrice)}
-            </span>
-            <span className="shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-gray-600 dark:text-gray-300">
-              {(currency || "COP").toUpperCase()}
-            </span>
-          </div>
+        <div className="space-y-2">
+          {discountData?.isValid && finalPrice !== null ? (
+            <>
+              <div className="flex items-end gap-2 max-w-full">
+                <span className="text-xl md:text-3xl font-extrabold text-primary leading-none wrap-break-word">
+                  {formatAmount(finalPrice)}
+                </span>
+                <span className="shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-gray-600 dark:text-gray-300">
+                  {(discountData.currency || currency || "COP").toUpperCase()}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-gray-500 dark:text-gray-400 line-through">
+                  {formatAmount(originalSubtotal)} {(currency || "COP").toUpperCase()}
+                </span>
+                <span className="text-sm text-green-600 dark:text-green-400 font-semibold">
+                  Ahorras {formatAmount(discountData.discountAmount)} {(discountData.currency || currency || "COP").toUpperCase()}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-end gap-2 max-w-full">
+              <span className="text-xl md:text-3xl font-extrabold text-primary leading-none wrap-break-word">
+                {finalPrice !== null ? formatAmount(finalPrice) : formatAmount(displayPrice)}
+              </span>
+              <span className="shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-gray-600 dark:text-gray-300">
+                {(currency || "COP").toUpperCase()}
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1 text-sm font-bold text-[#121717] dark:text-white">
           <BadgeCheck className="size-4 text-primary" />
@@ -343,6 +462,10 @@ export function BookingCard({
                         if (fromTripEnd && next && fromTripEnd < next) {
                           setFromTripEnd(next);
                         }
+                        // Limpiar descuento cuando cambian las fechas
+                        if (discountData) {
+                          setDiscountData(null);
+                        }
                       }}
                       disabled={submitting}
                     />
@@ -370,15 +493,19 @@ export function BookingCard({
                         if (fromTripStart && next && next < fromTripStart) {
                           setFromTripStart(next);
                         }
+                        // Limpiar descuento cuando cambian las fechas
+                        if (discountData) {
+                          setDiscountData(null);
+                        }
                       }}
                       disabled={submitting}
                     />
                   </div>
                 </div>
                 {(startDateFallback || endDateFallback) && (
-                  <p className="mt-3 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     Rango permitido:{" "}
-                    <span className="font-bold">
+                    <span className="font-semibold">
                       {formatDate(startDateFallback)} - {formatDate(endDateFallback)}
                     </span>
                   </p>
@@ -456,25 +583,67 @@ export function BookingCard({
                 ))}
               </div>
 
-              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                  Código de descuento (opcional)
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 overflow-hidden">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                  Código de descuento {discountData?.isValid && <span className="text-green-600 dark:text-green-400">• Aplicado</span>}
                 </label>
-                <div className="flex items-center gap-2">
-                  <Ticket className="h-4 w-4 text-gray-400" />
-                  <input
-                    className="w-full bg-transparent outline-none text-sm font-semibold"
-                    placeholder="DESCUENTO10"
-                    value={discountCode}
-                    onChange={(e) => setDiscountCode(e.target.value)}
-                    disabled={submitting}
-                  />
-                </div>
+                {discountData?.isValid ? (
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-green-500">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-semibold text-green-700 dark:text-green-300 truncate min-w-0">
+                        {discountData.code}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDiscountData(null);
+                        setDiscountCode("");
+                        toast.success("Código de descuento removido");
+                      }}
+                      className="shrink-0 text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-semibold px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors whitespace-nowrap"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 min-w-0 w-full">
+                    <div className="shrink-0 flex items-center justify-center">
+                      <Ticket className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      className="flex-1 min-w-0 h-10 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-3 text-sm font-semibold outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-gray-800"
+                      placeholder="Ingresa tu código"
+                      value={discountCode}
+                      onChange={(e) => handleDiscountCodeChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !validatingDiscount && discountCode.trim()) {
+                          e.preventDefault();
+                          validateAndApplyDiscount();
+                        }
+                      }}
+                      disabled={submitting || validatingDiscount}
+                    />
+                    <button
+                      type="button"
+                      onClick={validateAndApplyDiscount}
+                      disabled={submitting || validatingDiscount || !discountCode.trim()}
+                      className="shrink-0 h-10 px-4 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      {validatingDiscount ? "..." : "Aplicar"}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {typeof maxPersons === "number" && (
-                <p className="text-xs text-gray-500">
-                  Máx. por reserva: <span className="font-bold">{maxPersons}</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 pt-1">
+                  Máx. por reserva: <span className="font-semibold">{maxPersons}</span>
                 </p>
               )}
             </div>
@@ -559,15 +728,19 @@ export function BookingCard({
             );
             const endIso = buildIsoWithFallbackTime(fromTripEnd, endDateFallback);
 
+            // Solo enviar código de descuento si está validado y es válido
+            const codeToSend = discountData?.isValid && discountData.code === discountCode.trim().toUpperCase()
+              ? discountCode.trim().toUpperCase()
+              : null;
+
             res = await api.post("/bookings/from-trip", {
               idTrip,
               startDate: startIso,
               endDate: endIso,
               adults,
               children,
-              ...(discountCode.trim()
-                ? { discountCode: discountCode.trim() }
-                : {}),
+              ...(codeToSend ? { discountCode: codeToSend } : {}),
+              ...(promoterCode ? { promoterCode: promoterCode.toUpperCase() } : {}),
             });
 
             const wompiPaymentLink =

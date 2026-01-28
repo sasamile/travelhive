@@ -102,6 +102,7 @@ export default function ExpeditionsPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [statsModalOpen, setStatsModalOpen] = useState(false);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [selectedExpeditionId, setSelectedExpeditionId] = useState<string | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [searchResults, setSearchResults] = useState<Expedition[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -150,29 +151,7 @@ export default function ExpeditionsPage() {
 
   const insights = getRealInsights();
 
-  const actionCards = [
-    {
-      icon: TrendingUp,
-      title: "Optimizar Disponibilidad",
-      description: `${insights.lowOccupancyCount} expediciones tienen menos del 50% de ocupación. Considera ajustar precios o promociones.`,
-      action: "Ver Oportunidades",
-      color: "indigo",
-    },
-    {
-      icon: Users,
-      title: "Gestionar Reservas",
-      description: `${insights.highOccupancyCount} expediciones están casi llenas (80%+). Prepara listas de espera y gestiona expectativas.`,
-      action: "Ver Reservas",
-      color: "emerald",
-    },
-    {
-      icon: Calendar,
-      title: "Próximas Fechas",
-      description: `${insights.upcomingDeadlinesCount} expediciones activas requieren atención. Revisa fechas y disponibilidad.`,
-      action: "Ver Calendario",
-      color: "amber",
-    },
-  ];
+
 
   const getStatusFromTab = (tab: string): string | undefined => {
     switch (tab) {
@@ -267,24 +246,21 @@ export default function ExpeditionsPage() {
     if (loading || expeditions.length === 0) return;
 
     const ctx = gsap.context(() => {
-      // Animación de entrada para las tarjetas
+      // Animación de entrada para las filas de la tabla
       gsap.fromTo(
         ".expedition-card",
         {
           opacity: 0,
-          y: 30,
-          scale: 0.95,
+          x: -20,
         },
         {
           opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 0.6,
-          stagger: 0.08,
-          ease: "power3.out",
+          x: 0,
+          duration: 0.4,
+          stagger: 0.05,
+          ease: "power2.out",
         }
       );
-
 
       // Animación para las action cards (con delay para efecto de scroll)
       setTimeout(() => {
@@ -338,8 +314,8 @@ export default function ExpeditionsPage() {
         {
           opacity: 1,
           x: 0,
-          duration: 0.5,
-          stagger: 0.06,
+          duration: 0.4,
+          stagger: 0.05,
           ease: "power2.out",
         }
       );
@@ -569,16 +545,24 @@ export default function ExpeditionsPage() {
   };
 
   const handleChangeStatus = async (tripId: string, newStatus: "DRAFT" | "PUBLISHED" | "ARCHIVED") => {
+    if (!tripId) {
+      toast.error("ID de viaje no válido");
+      return;
+    }
+
     try {
       setUpdatingId(tripId);
       setOpenMenuId(null);
+      
+      console.log(`Cambiando estado del viaje ${tripId} a ${newStatus}`);
       
       const currentExpedition = expeditions.find(exp => exp.id === tripId);
       const isCurrentlyInactive = currentExpedition?.isActive === false || 
                                    currentExpedition?.status === "DESACTIVADO" ||
                                    currentExpedition?.status === "INACTIVO";
       
-      await api.put(`/agencies/trips/${tripId}/status`, { status: newStatus });
+      const response = await api.put(`/agencies/trips/${tripId}/status`, { status: newStatus });
+      console.log("Respuesta de cambio de estado:", response.data);
       
       if (newStatus === "PUBLISHED" && isCurrentlyInactive) {
         try {
@@ -601,27 +585,50 @@ export default function ExpeditionsPage() {
       toast.success(message);
       await refetchExpeditions();
     } catch (error: any) {
-      console.error("Error al cambiar estado:", error);
-      toast.error(error.response?.data?.message || "Error al cambiar el estado de la expedición");
+      console.error("Error completo al cambiar estado:", error);
+      console.error("Status:", error.response?.status);
+      console.error("URL:", error.config?.url);
+      console.error("Mensaje:", error.response?.data?.message || error.message);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error ||
+                          error.message ||
+                          "Error al cambiar el estado de la expedición";
+      toast.error(errorMessage);
     } finally {
       setUpdatingId(null);
     }
   };
 
   const handleToggleActive = async (tripId: string, currentActive: boolean) => {
+    if (!tripId) {
+      toast.error("ID de viaje no válido");
+      return;
+    }
+
     try {
       setUpdatingId(tripId);
       setOpenMenuId(null);
       
       const newActiveState = !currentActive;
+      console.log(`Cambiando estado activo del viaje ${tripId} a ${newActiveState}`);
       
-      await api.put(`/agencies/trips/${tripId}/active`, { isActive: newActiveState });
+      const response = await api.put(`/agencies/trips/${tripId}/active`, { isActive: newActiveState });
+      console.log("Respuesta de cambio de estado activo:", response.data);
       
       toast.success(`Expedición ${newActiveState ? "activada" : "desactivada"} exitosamente`);
       await refetchExpeditions();
     } catch (error: any) {
-      console.error("Error al cambiar estado activo:", error);
-      toast.error(error.response?.data?.message || "Error al cambiar el estado de la expedición");
+      console.error("Error completo al cambiar estado activo:", error);
+      console.error("Status:", error.response?.status);
+      console.error("URL:", error.config?.url);
+      console.error("Mensaje:", error.response?.data?.message || error.message);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error ||
+                          error.message ||
+                          "Error al cambiar el estado de la expedición";
+      toast.error(errorMessage);
     } finally {
       setUpdatingId(null);
     }
@@ -729,25 +736,27 @@ export default function ExpeditionsPage() {
           ))}
         </div>
 
-        {/* Expeditions Grid */}
-        <div ref={cardsRef} className="space-y-4">
+        {/* Expeditions Table */}
+        <div ref={cardsRef} className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
           {loading ? (
-            Array.from({ length: 3 }).map((_, index) => (
-              <div key={`skeleton-${index}`} className="animate-pulse">
-                <div className="bg-white rounded-2xl border border-zinc-200 p-6">
-                  <div className="flex items-start gap-6">
-                    <div className="size-20 rounded-xl bg-zinc-200 shrink-0"></div>
-                    <div className="flex-1 space-y-3">
-                      <div className="h-5 w-64 bg-zinc-200 rounded"></div>
+            <div className="p-8">
+              <div className="space-y-4">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div key={`skeleton-${index}`} className="animate-pulse flex items-center gap-4">
+                    <div className="size-12 rounded-lg bg-zinc-200 shrink-0"></div>
+                    <div className="flex-1 space-y-2">
                       <div className="h-4 w-48 bg-zinc-200 rounded"></div>
                       <div className="h-3 w-32 bg-zinc-200 rounded"></div>
                     </div>
+                    <div className="h-3 w-24 bg-zinc-200 rounded"></div>
+                    <div className="h-3 w-20 bg-zinc-200 rounded"></div>
+                    <div className="h-3 w-16 bg-zinc-200 rounded"></div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))
+            </div>
           ) : expeditions.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-zinc-200 p-12 text-center">
+            <div className="p-12 text-center">
               <div className="flex flex-col items-center gap-3">
                 <div className="size-16 rounded-full bg-zinc-100 flex items-center justify-center">
                   <MapPin className="size-8 text-zinc-400" />
@@ -759,107 +768,195 @@ export default function ExpeditionsPage() {
               </div>
             </div>
           ) : (
-            expeditions.map((expedition, index) => (
-              <div
-                key={expedition.id}
-                className="expedition-card bg-white rounded-2xl border border-zinc-200/60 p-6 hover:shadow-lg hover:border-zinc-300 transition-all duration-300 group"
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                <div className="flex items-start gap-6">
-                  {/* Imagen */}
-                  <div className="relative shrink-0">
-                    <div
-                      className="size-20 rounded-xl bg-zinc-100 bg-cover bg-center border border-zinc-200 shadow-sm group-hover:scale-105 transition-transform duration-300"
-                      style={{ backgroundImage: `url('${expedition.image}')` }}
-                    />
-                    <div className="absolute -top-2 -right-2">
-                      <span className={cn(
-                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-sm",
-                        expedition.status === "PUBLISHED" || expedition.status === "ACTIVO" || expedition.status === "PUBLICADO"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : expedition.status === "DRAFT" || expedition.status === "BORRADOR"
-                          ? "bg-slate-50 text-slate-700 border-slate-200"
-                          : expedition.status === "DESACTIVADO" || expedition.status === "INACTIVO" || expedition.status === "INACTIVE"
-                          ? "bg-red-50 text-red-700 border-red-200"
-                          : expedition.status === "ARCHIVED" || expedition.status === "ARCHIVADO"
-                          ? "bg-amber-50 text-amber-700 border-amber-200"
-                          : expedition.status === "COMPLETADAS" || expedition.status === "COMPLETADO" || expedition.status === "COMPLETED"
-                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                          : expedition.status === "LLENO"
-                          ? "bg-orange-50 text-orange-700 border-orange-200"
-                          : expedition.status === "LISTA DE ESPERA" || expedition.status === "WAITING_LIST" || expedition.status === "EN ESPERA"
-                          ? "bg-purple-50 text-purple-700 border-purple-200"
-                          : "bg-zinc-50 text-zinc-700 border-zinc-200"
-                      )}>
-                        {(expedition.status === "PUBLISHED" || expedition.status === "ACTIVO" || expedition.status === "PUBLICADO") && (
-                          <span className="text-xs">●</span>
-                        )}
-                        {expedition.status}
-                      </span>
-                    </div>
-                  </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-200 bg-zinc-50/50">
+                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Expedición
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Ubicación
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Fechas
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Duración
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Ocupación
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                      Ingresos
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {expeditions.map((expedition, index) => {
+                    const isPublished = expedition.status === "PUBLISHED" || 
+                                       expedition.status === "PUBLICADO" || 
+                                       expedition.status === "ACTIVO";
+                    const isDraft = expedition.status === "DRAFT" || 
+                                   expedition.status === "BORRADOR";
+                    const isArchived = expedition.status === "ARCHIVED" || 
+                                      expedition.status === "ARCHIVADO";
+                    const isInactive = expedition.isActive === false || 
+                                      expedition.status === "DESACTIVADO" || 
+                                      expedition.status === "INACTIVO" || 
+                                      expedition.status === "INACTIVE";
+                    const isCompleted = expedition.status === "COMPLETADAS" || 
+                                       expedition.status === "COMPLETADO" || 
+                                       expedition.status === "COMPLETED";
+                    const isFull = expedition.status === "LLENO";
+                    const isWaitingList = expedition.status === "LISTA DE ESPERA" || 
+                                          expedition.status === "WAITING_LIST" || 
+                                          expedition.status === "EN ESPERA";
+                    const isActive = expedition.isActive !== false && !isInactive;
 
-                  {/* Contenido */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-zinc-900 mb-1 truncate">
-                          {expedition.title}
-                        </h3>
-                        <div className="flex items-center gap-4 text-xs text-zinc-500">
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="size-3.5" />
-                            <span>{expedition.location}</span>
+                    return (
+                      <tr
+                        key={expedition.id}
+                        className="expedition-card hover:bg-zinc-50/50 transition-colors group"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        {/* Expedición */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="relative shrink-0">
+                              <div
+                                className="size-12 rounded-lg bg-zinc-100 bg-cover bg-center border border-zinc-200 shadow-sm"
+                                style={{ backgroundImage: `url('${expedition.image}')` }}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="text-sm font-semibold text-zinc-900 truncate">
+                                {expedition.title}
+                              </h3>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="size-3.5" />
+                        </td>
+
+                        {/* Estado */}
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-sm",
+                            isPublished
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : isDraft
+                              ? "bg-slate-50 text-slate-700 border-slate-200"
+                              : isInactive
+                              ? "bg-red-50 text-red-700 border-red-200"
+                              : isArchived
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : isCompleted
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : isFull
+                              ? "bg-orange-50 text-orange-700 border-orange-200"
+                              : isWaitingList
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : "bg-zinc-50 text-zinc-700 border-zinc-200"
+                          )}>
+                            {isPublished && <span className="text-xs">●</span>}
+                            {expedition.status}
+                          </span>
+                        </td>
+
+                        {/* Ubicación */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5 text-sm text-zinc-600">
+                            <MapPin className="size-3.5 shrink-0" />
+                            <span className="truncate">{expedition.location}</span>
+                          </div>
+                        </td>
+
+                        {/* Fechas */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5 text-sm text-zinc-600">
+                            <Calendar className="size-3.5 shrink-0" />
                             <span>{expedition.dates}</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="size-3.5" />
+                        </td>
+
+                        {/* Duración */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5 text-sm text-zinc-600">
+                            <Clock className="size-3.5 shrink-0" />
                             <span>{expedition.duration}</span>
                           </div>
-                        </div>
-                      </div>
+                        </td>
 
-                      {/* Menu */}
-                      <DropdownMenu
-                        open={openMenuId === expedition.id}
-                        onOpenChange={(open) => {
-                          setOpenMenuId(open ? expedition.id : null);
-                        }}
-                      >
-                        <DropdownMenuTrigger asChild>
-                          <button 
-                            className="text-zinc-400 hover:text-zinc-900 transition-colors disabled:opacity-50 opacity-0 group-hover:opacity-100 outline-none p-1.5 rounded-lg hover:bg-zinc-100"
-                            disabled={updatingId === expedition.id}
-                          >
-                            <MoreVertical className="size-5" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent 
-                          align="end" 
-                          className="w-56"
-                        >
-                          {(() => {
-                            const isPublished = expedition.status === "PUBLISHED" || 
-                                               expedition.status === "PUBLICADO" || 
-                                               expedition.status === "ACTIVO";
-                            const isDraft = expedition.status === "DRAFT" || 
-                                           expedition.status === "BORRADOR";
-                            const isArchived = expedition.status === "ARCHIVED" || 
-                                              expedition.status === "ARCHIVADO";
-                            const isInactive = expedition.isActive === false || 
-                                              expedition.status === "DESACTIVADO" || 
-                                              expedition.status === "INACTIVO" || 
-                                              expedition.status === "INACTIVE";
-                            const isActive = expedition.isActive !== false && !isInactive;
-                            
-                            return (
-                              <>
+                        {/* Ocupación */}
+                        <td className="px-6 py-4">
+                          <div className="min-w-[120px]">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs text-zinc-500">
+                                {expedition.occupancy.current}/{expedition.occupancy.total}
+                              </span>
+                              <span className="text-xs font-medium text-zinc-600">
+                                {expedition.occupancy.percentage}%
+                              </span>
+                            </div>
+                            <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all duration-500",
+                                  expedition.occupancy.percentage === 100 
+                                    ? "bg-amber-500" 
+                                    : expedition.occupancy.percentage >= 80
+                                    ? "bg-emerald-500"
+                                    : expedition.occupancy.percentage >= 50
+                                    ? "bg-indigo-500"
+                                    : "bg-zinc-400"
+                                )}
+                                style={{ width: `${expedition.occupancy.percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Ingresos */}
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <DollarSign className="size-4 text-zinc-500" />
+                            <span className="text-sm font-semibold text-zinc-900">{expedition.revenue}</span>
+                          </div>
+                        </td>
+
+                        {/* Acciones */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end">
+                            <DropdownMenu
+                              open={openMenuId === expedition.id}
+                              onOpenChange={(open) => {
+                                setOpenMenuId(open ? expedition.id : null);
+                              }}
+                            >
+                              <DropdownMenuTrigger asChild>
+                                <button 
+                                  className="text-zinc-900 transition-colors  group-hover:opacity-100 outline-none p-1.5 rounded-lg hover:bg-zinc-100"
+                                  disabled={updatingId === expedition.id}
+                                >
+                                  <MoreVertical className="size-5" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent 
+                                align="end" 
+                                className="w-56"
+                              >
                                 {!isPublished && (
                                   <DropdownMenuItem
-                                    onClick={() => handleChangeStatus(expedition.id, "PUBLISHED")}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleChangeStatus(expedition.id, "PUBLISHED");
+                                    }}
                                     disabled={updatingId === expedition.id}
                                     className="flex items-center gap-3 cursor-pointer"
                                   >
@@ -869,7 +966,11 @@ export default function ExpeditionsPage() {
                                 )}
                                 {!isDraft && (
                                   <DropdownMenuItem
-                                    onClick={() => handleChangeStatus(expedition.id, "DRAFT")}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleChangeStatus(expedition.id, "DRAFT");
+                                    }}
                                     disabled={updatingId === expedition.id}
                                     className="flex items-center gap-3 cursor-pointer"
                                   >
@@ -879,7 +980,11 @@ export default function ExpeditionsPage() {
                                 )}
                                 {!isArchived && (
                                   <DropdownMenuItem
-                                    onClick={() => handleChangeStatus(expedition.id, "ARCHIVED")}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleChangeStatus(expedition.id, "ARCHIVED");
+                                    }}
                                     disabled={updatingId === expedition.id}
                                     className="flex items-center gap-3 cursor-pointer"
                                   >
@@ -894,7 +999,11 @@ export default function ExpeditionsPage() {
                                 
                                 {isActive ? (
                                   <DropdownMenuItem
-                                    onClick={() => handleToggleActive(expedition.id, true)}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleToggleActive(expedition.id, true);
+                                    }}
                                     disabled={updatingId === expedition.id}
                                     className="flex items-center gap-3 cursor-pointer"
                                   >
@@ -903,7 +1012,11 @@ export default function ExpeditionsPage() {
                                   </DropdownMenuItem>
                                 ) : (
                                   <DropdownMenuItem
-                                    onClick={() => handleToggleActive(expedition.id, false)}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleToggleActive(expedition.id, false);
+                                    }}
                                     disabled={updatingId === expedition.id}
                                     className="flex items-center gap-3 cursor-pointer"
                                   >
@@ -911,130 +1024,118 @@ export default function ExpeditionsPage() {
                                     <span className="font-medium">Activar</span>
                                   </DropdownMenuItem>
                                 )}
-                              </>
-                            );
-                          })()}
-                          
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              setSelectedTripId(expedition.id);
-                              setStatsModalOpen(true);
-                            }}
-                            className="flex items-center gap-3 cursor-pointer"
-                          >
-                            <BarChart3 className="size-4 text-purple-600 shrink-0" />
-                            <span className="font-medium">Ver Estadísticas</span>
-                          </DropdownMenuItem>
-                          
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              setEditTripId(expedition.id);
-                              setIsModalOpen(true);
-                            }}
-                            className="flex items-center gap-3 cursor-pointer"
-                          >
-                            <Edit className="size-4 text-indigo-600 shrink-0" />
-                            <span className="font-medium">Editar</span>
-                          </DropdownMenuItem>
-                          
-                          {/* Solo mostrar opción de eliminar si la expedición NO está llena y tiene ocupación 0 */}
-                          {(() => {
-                            const isFull = expedition.occupancy?.percentage >= 100;
-                            const hasOccupancy = (expedition.occupancy?.current || 0) > 0;
-                            const canDelete = !isFull && !hasOccupancy;
-                            
-                            // Si no se puede eliminar, no mostrar la opción
-                            if (!canDelete) {
-                              return null;
-                            }
-                            
-                            return (
-                              <>
+                                
                                 <DropdownMenuSeparator />
+                                
                                 <DropdownMenuItem
-                                  onClick={async () => {
+                                  onClick={async (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     setOpenMenuId(null);
-                                    // Necesitamos obtener las expediciones del trip para poder eliminarlas
-                                    // Asumimos que expedition.id es el tripId (idTrip)
+                                    
                                     try {
+                                      // Obtener el trip completo para acceder a las expediciones
                                       const tripResponse = await api.get(`/agencies/trips/${expedition.id}`);
                                       const trip = tripResponse.data?.data || tripResponse.data;
                                       
+                                      // Obtener el idExpedition de la primera expedición si existe
+                                      let expeditionId: string | null = null;
                                       if (trip && trip.expeditions && trip.expeditions.length > 0) {
-                                        // Si hay múltiples expediciones, por ahora eliminamos la primera
-                                        // En el futuro se podría implementar un selector
-                                        const firstExpedition = trip.expeditions[0];
-                                        
-                                        // Si hay más de una expedición, mostrar advertencia
-                                        if (trip.expeditions.length > 1) {
-                                          toast.error(`Este viaje tiene ${trip.expeditions.length} expediciones. Por ahora solo se puede eliminar la primera.`);
-                                        }
-                                        
-                                        setExpeditionToDelete({
-                                          tripId: expedition.id,
-                                          expeditionId: firstExpedition.idExpedition,
-                                          title: expedition.title,
-                                        });
-                                        setIsDeleteModalOpen(true);
+                                        expeditionId = trip.expeditions[0].idExpedition;
+                                        console.log("Abriendo estadísticas para expeditionId:", expeditionId);
                                       } else {
-                                        toast.error("Este viaje no tiene expediciones para eliminar");
+                                        console.log("Abriendo estadísticas para tripId:", expedition.id);
                                       }
+                                      
+                                      setSelectedTripId(expedition.id);
+                                      setSelectedExpeditionId(expeditionId);
+                                      setStatsModalOpen(true);
                                     } catch (error: any) {
                                       console.error("Error al obtener expediciones:", error);
-                                      toast.error("Error al cargar las expediciones del viaje");
+                                      // Si falla, aún así abrir el modal con solo tripId
+                                      setSelectedTripId(expedition.id);
+                                      setSelectedExpeditionId(null);
+                                      setStatsModalOpen(true);
                                     }
                                   }}
-                                  className="flex items-center gap-3 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                  className="flex items-center gap-3 cursor-pointer"
                                 >
-                                  <Trash2 className="size-4 text-red-600 shrink-0" />
-                                  <span className="font-medium">Eliminar Expedición</span>
+                                  <BarChart3 className="size-4 text-purple-600 shrink-0" />
+                                  <span className="font-medium">Ver Estadísticas</span>
                                 </DropdownMenuItem>
-                              </>
-                            );
-                          })()}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-
-                    {/* Stats Row */}
-                    <div className="flex items-center gap-6">
-                      {/* Ocupación */}
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-zinc-600">Ocupación</span>
-                          <span className="text-xs text-zinc-500">
-                            {expedition.occupancy.current}/{expedition.occupancy.total} ({expedition.occupancy.percentage}%)
-                          </span>
-                        </div>
-                        <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all duration-500",
-                              expedition.occupancy.percentage === 100 
-                                ? "bg-amber-500" 
-                                : expedition.occupancy.percentage >= 80
-                                ? "bg-emerald-500"
-                                : expedition.occupancy.percentage >= 50
-                                ? "bg-indigo-500"
-                                : "bg-zinc-400"
-                            )}
-                            style={{ width: `${expedition.occupancy.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Ingresos */}
-                      <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 rounded-lg border border-zinc-200">
-                        <DollarSign className="size-4 text-zinc-600" />
-                        <span className="text-sm font-semibold text-zinc-900">{expedition.revenue}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
+                                
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    setEditTripId(expedition.id);
+                                    setIsModalOpen(true);
+                                  }}
+                                  className="flex items-center gap-3 cursor-pointer"
+                                >
+                                  <Edit className="size-4 text-indigo-600 shrink-0" />
+                                  <span className="font-medium">Editar</span>
+                                </DropdownMenuItem>
+                                
+                                {(() => {
+                                  const isFull = expedition.occupancy?.percentage >= 100;
+                                  const hasOccupancy = (expedition.occupancy?.current || 0) > 0;
+                                  const canDelete = !isFull && !hasOccupancy;
+                                  
+                                  if (!canDelete) {
+                                    return null;
+                                  }
+                                  
+                                  return (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={async () => {
+                                          setOpenMenuId(null);
+                                          try {
+                                            const tripResponse = await api.get(`/agencies/trips/${expedition.id}`);
+                                            const trip = tripResponse.data?.data || tripResponse.data;
+                                            
+                                            if (trip && trip.expeditions && trip.expeditions.length > 0) {
+                                              const firstExpedition = trip.expeditions[0];
+                                              
+                                              if (trip.expeditions.length > 1) {
+                                                toast.error(`Este viaje tiene ${trip.expeditions.length} expediciones. Por ahora solo se puede eliminar la primera.`);
+                                              }
+                                              
+                                              setExpeditionToDelete({
+                                                tripId: expedition.id,
+                                                expeditionId: firstExpedition.idExpedition,
+                                                title: expedition.title,
+                                              });
+                                              setIsDeleteModalOpen(true);
+                                            } else {
+                                              toast.error("Este viaje no tiene expediciones para eliminar");
+                                            }
+                                          } catch (error: any) {
+                                            console.error("Error al obtener expediciones:", error);
+                                            toast.error("Error al cargar las expediciones del viaje");
+                                          }
+                                        }}
+                                        className="flex items-center gap-3 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                      >
+                                        <Trash2 className="size-4 text-red-600 shrink-0" />
+                                        <span className="font-medium">Eliminar Expedición</span>
+                                      </DropdownMenuItem>
+                                    </>
+                                  );
+                                })()}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -1063,63 +1164,7 @@ export default function ExpeditionsPage() {
           </div>
         )}
 
-        {/* Action Cards - Insights Reales */}
-        {!loading && expeditions.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-8">
-            {actionCards.map((card, index) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={index}
-                  className={cn(
-                    "action-card p-6 rounded-xl border transition-all duration-300 cursor-pointer group",
-                    card.color === "indigo" && "bg-indigo-50/50 border-indigo-200/50 hover:border-indigo-300 hover:shadow-md",
-                    card.color === "emerald" && "bg-emerald-50/50 border-emerald-200/50 hover:border-emerald-300 hover:shadow-md",
-                    card.color === "amber" && "bg-amber-50/50 border-amber-200/50 hover:border-amber-300 hover:shadow-md"
-                  )}
-                  onMouseEnter={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1.02,
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                  onMouseLeave={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1,
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className={cn(
-                      "p-2.5 rounded-lg shrink-0",
-                      card.color === "indigo" && "bg-indigo-100 text-indigo-600",
-                      card.color === "emerald" && "bg-emerald-100 text-emerald-600",
-                      card.color === "amber" && "bg-amber-100 text-amber-600"
-                    )}>
-                      <Icon className="size-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-semibold text-zinc-900 mb-1.5">{card.title}</h4>
-                      <p className="text-xs text-zinc-600 leading-relaxed mb-3">{card.description}</p>
-                      <span className={cn(
-                        "text-[10px] font-bold flex items-center gap-1.5 group-hover:gap-2 transition-all",
-                        card.color === "indigo" && "text-indigo-600",
-                        card.color === "emerald" && "text-emerald-600",
-                        card.color === "amber" && "text-amber-600"
-                      )}>
-                        {card.action}
-                        <ArrowRight className="size-3" />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+   
       </div>
 
       <NewTripModal 
@@ -1137,8 +1182,10 @@ export default function ExpeditionsPage() {
           onClose={() => {
             setStatsModalOpen(false);
             setSelectedTripId(null);
+            setSelectedExpeditionId(null);
           }}
           tripId={selectedTripId}
+          expeditionId={selectedExpeditionId}
         />
       )}
 

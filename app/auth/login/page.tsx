@@ -18,7 +18,7 @@ function LoginPage() {
       const frontendURL = typeof window !== "undefined" 
         ? `${window.location.protocol}//${window.location.host}` 
         : "http://localhost:3001";
-      const callbackURL = `${frontendURL}/customers`;
+      const callbackURL = `${frontendURL}/auth/callback`;
       
       const response = await api.post("/api/auth/sign-in/social", {
         provider: "google",

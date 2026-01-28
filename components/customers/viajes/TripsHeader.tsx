@@ -1,15 +1,19 @@
 type TripsHeaderProps = {
-  activeTab?: "upcoming" | "history";
-  onTabChange?: (tab: "upcoming" | "history") => void;
+  activeTab?: "upcoming" | "history" | "favorites";
+  onTabChange?: (tab: "upcoming" | "history" | "favorites") => void;
   upcomingCount?: number;
   historyCount?: number;
+  favoritesCount?: number;
 };
+
+import { Heart } from "lucide-react";
 
 export function TripsHeader({ 
   activeTab = "upcoming", 
   onTabChange,
   upcomingCount = 0,
   historyCount = 0,
+  favoritesCount = 0,
 }: TripsHeaderProps) {
   return (
     <header className="flex flex-wrap justify-between items-end gap-6 mb-8">
@@ -51,6 +55,22 @@ export function TripsHeader({
             {historyCount > 0 && (
               <span className="ml-2 px-1.5 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
                 {historyCount}
+              </span>
+            )}
+          </button>
+          <button 
+            onClick={() => onTabChange("favorites")}
+            className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+              activeTab === "favorites"
+                ? "bg-white dark:bg-gray-700 shadow-sm text-primary"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            <Heart className={`size-4 ${activeTab === "favorites" ? "fill-primary" : ""}`} />
+            Favoritos
+            {favoritesCount > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
+                {favoritesCount}
               </span>
             )}
           </button>

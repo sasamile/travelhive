@@ -680,75 +680,7 @@ function Page() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Miembros del Equipo */}
-            {loading ? (
-              <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm animate-pulse">
-                <div className="h-4 w-40 bg-zinc-200 rounded mb-4"></div>
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center gap-3 pb-3 border-b border-zinc-100">
-                      <div className="size-10 rounded-full bg-zinc-200"></div>
-                      <div className="flex-1">
-                        <div className="h-3 w-24 bg-zinc-200 rounded mb-2"></div>
-                        <div className="h-2 w-32 bg-zinc-200 rounded"></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Users className="size-4 text-indigo-600" />
-                    <h4 className="text-sm font-bold text-zinc-900">Miembros del Equipo</h4>
-                  </div>
-                  <button
-                    onClick={() => router.push("/agent/team")}
-                    className="text-xs text-indigo-600 hover:text-indigo-700"
-                  >
-                    Ver todos
-                  </button>
-                </div>
-                {teamMembers.length > 0 ? (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                    {teamMembers.map((member, index) => (
-                      <div key={member.id || index} className="flex items-center gap-3 pb-3 border-b border-zinc-100 last:border-0 last:pb-0">
-                        <div
-                          className="size-10 rounded-full bg-zinc-100 bg-cover bg-center shrink-0 border-2 border-white shadow-sm"
-                          style={{ backgroundImage: `url('${member.avatar}')` }}
-                        ></div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-zinc-900 truncate">
-                            {member.name}
-                          </p>
-                          <p className="text-[10px] text-zinc-500 truncate">
-                            {member.email}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded ${
-                              member.status === "Activo" 
-                                ? "bg-emerald-50 text-emerald-600" 
-                                : "bg-amber-50 text-amber-600"
-                            }`}>
-                              {member.status}
-                            </span>
-                            <span className="text-[9px] text-zinc-400">
-                              {member.role}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Users className="size-8 text-zinc-300 mx-auto mb-2" />
-                    <p className="text-xs text-zinc-400">No hay miembros del equipo</p>
-                  </div>
-                )}
-              </div>
-            )}
+       
 
             {/* Mini Revenue Chart */}
             {loading ? (

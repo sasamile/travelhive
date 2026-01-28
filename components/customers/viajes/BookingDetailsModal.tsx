@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Calendar, MapPin, Users, DollarSign, Building2, Clock } from "lucide-react";
+import { X, Calendar, MapPin, Users, DollarSign, Building2, Clock, QrCode, Download } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -14,6 +14,8 @@ type BookingDetailsModalProps = {
     totalBuy: number;
     currency?: string;
     totalPersons?: number;
+    qrCode?: string | null;
+    qrImageUrl?: string | null;
     trip?: {
       title?: string;
       description?: string;
@@ -261,6 +263,59 @@ export function BookingDetailsModal({ isOpen, onClose, booking }: BookingDetails
                 </div>
               </div>
             </div>
+
+            {/* Código QR - Solo mostrar si está confirmado y tiene QR */}
+            {booking.status === "CONFIRMED" && booking.qrImageUrl && (
+              <div className="border-2 border-dashed border-primary/30 rounded-xl p-6 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-primary/20 rounded-lg">
+                    <QrCode className="size-5 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Tu Código QR</h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Presenta este código al llegar al evento</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-center gap-4">
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-lg">
+                    <img
+                      src={booking.qrImageUrl}
+                      alt="Código QR"
+                      className="w-48 h-48 object-contain"
+                    />
+                  </div>
+                  
+                  {booking.qrCode && (
+                    <div className="w-full">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 text-center">Código:</p>
+                      <div className="bg-white dark:bg-gray-900 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-mono font-semibold text-gray-900 dark:text-white text-center">
+                          {booking.qrCode}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (booking.qrImageUrl) {
+                        const link = document.createElement("a");
+                        link.href = booking.qrImageUrl;
+                        link.download = `QR-${booking.qrCode || booking.idBooking || "booking"}.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
+                  >
+                    <Download className="size-4" />
+                    Descargar QR
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

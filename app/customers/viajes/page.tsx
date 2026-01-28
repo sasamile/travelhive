@@ -10,19 +10,22 @@ import { TripsHeader } from "@/components/customers/viajes/TripsHeader";
 import { TripsSearch } from "@/components/customers/viajes/TripsSearch";
 import { UpcomingTripsSection } from "@/components/customers/viajes/UpcomingTripsSection";
 import { PastTripsSection } from "@/components/customers/viajes/PastTripsSection";
+import { FavoritesSection } from "@/components/customers/viajes/FavoritesSection";
 import { TripsSkeleton } from "@/components/customers/viajes/TripsSkeleton";
 import { pastTrips, upcomingTrips, type Trip, type PastTrip } from "@/components/customers/viajes/data";
 import CustomersNav from "@/components/customers/CustomersNav";
-import { Compass, Plane } from "lucide-react";
+import { Compass, Plane, Heart } from "lucide-react";
 
 function MyViajes() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [upcomingTripsData, setUpcomingTripsData] = useState<Trip[]>([]);
   const [pastTripsData, setPastTripsData] = useState<PastTrip[]>([]);
+  const [favoritesData, setFavoritesData] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"upcoming" | "history">("upcoming");
+  const [activeTab, setActiveTab] = useState<"upcoming" | "history" | "favorites">("upcoming");
   const [bookingsRawData, setBookingsRawData] = useState<any[]>([]); // Guardar datos completos de las reservas
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
 
   // Función para mapear booking a Trip
   const mapBookingToTrip = (booking: any): Trip => {
@@ -86,6 +89,29 @@ function MyViajes() {
       imageAlt: trip.title || "",
     };
   };
+
+  // Cargar favoritos
+  useEffect(() => {
+    const loadFavorites = async () => {
+      if (activeTab !== "favorites") return;
+      
+      try {
+        setLoadingFavorites(true);
+        const response = await api.get("/favorites/trips");
+        setFavoritesData(response.data?.data || []);
+      } catch (err: any) {
+        console.error("Error al cargar favoritos:", err);
+        if (err.response?.status !== 401) {
+          toast.error("No se pudieron cargar tus favoritos");
+        }
+        setFavoritesData([]);
+      } finally {
+        setLoadingFavorites(false);
+      }
+    };
+
+    loadFavorites();
+  }, [activeTab]);
 
   // Cargar viajes del usuario
   useEffect(() => {
@@ -265,13 +291,14 @@ function MyViajes() {
     <div className="bg-background-light dark:bg-background-dark font-display text-[#4a4a4a] dark:text-gray-200">
       <CustomersNav />
       <div className="flex min-h-screen">
-        <Sidebar />
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
         <main className="flex-1 max-w-5xl mx-auto px-10 py-12 ml-64     ">
           <TripsHeader 
             activeTab={activeTab}
             onTabChange={setActiveTab}
             upcomingCount={upcomingTripsData.length}
             historyCount={pastTripsData.length}
+            favoritesCount={favoritesData.length}
           />
           <TripsSearch onSearch={setSearchQuery} />
           {loading ? (
@@ -305,7 +332,7 @@ function MyViajes() {
                     </div>
                   )}
                 </>
-              ) : (
+              ) : activeTab === "history" ? (
                 <>
                   {pastTripsData.length > 0 ? (
                     <PastTripsSection 
@@ -328,6 +355,14 @@ function MyViajes() {
                         </div>
                       </div>
                     </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {loadingFavorites ? (
+                    <TripsSkeleton />
+                  ) : (
+                    <FavoritesSection favoritesData={favoritesData} />
                   )}
                 </>
               )}

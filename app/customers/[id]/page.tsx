@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useState, useMemo, useRef, Suspense, useCallback } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import CustomersNav from "@/components/customers/CustomersNav";
 import { Heart, Share2, Star } from 'lucide-react';
 import { ActionButton } from '@/components/customers/experience/ActionButton';
 import { AgentInfo } from '@/components/customers/experience/AgentInfo';
-import { Breadcrumbs } from '@/components/customers/experience/Breadcrumbs';
 import { BookingCard } from '@/components/customers/experience/BookingCard';
 import { ExperienceFooter } from '@/components/customers/experience/ExperienceFooter';
 import { GalleryGrid } from '@/components/customers/experience/GalleryGrid';
@@ -14,6 +13,7 @@ import { Itinerary } from '@/components/customers/experience/Itinerary';
 import { MapSection } from '@/components/customers/experience/MapSection';
 import { PoliciesSection } from '@/components/customers/experience/PoliciesSection';
 import { ReviewsSection } from '@/components/customers/experience/ReviewsSection';
+import toast from 'react-hot-toast';
 import { TrustBadges } from '@/components/customers/experience/TrustBadges';
 import { PublicTrip } from '@/types/trips';
 import api from '@/lib/axios';
@@ -119,12 +119,111 @@ function TripDetailSkeleton() {
   );
 }
 
-function Page() {
+function PageContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const tripId = params.id as string;
   const [trip, setTrip] = useState<PublicTrip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [togglingFavorite, setTogglingFavorite] = useState(false);
+  const [reviewsStats, setReviewsStats] = useState<{ averageRating: number; totalReviews: number } | null>(null);
+  const promoterCode = searchParams.get('promoter');
+  const viewRegistered = useRef(false); // Para evitar registrar múltiples veces
+
+  // Verificar si el viaje está en favoritos
+  useEffect(() => {
+    const checkFavorite = async () => {
+      if (!tripId) return;
+      
+      try {
+        // Intentar obtener favoritos y verificar si este trip está en la lista
+        const favoritesResponse = await api.get("/favorites/trips");
+        const favorites = favoritesResponse.data?.data || [];
+        const isFav = favorites.some((fav: any) => fav.idTrip === tripId);
+        setIsFavorite(isFav);
+      } catch (err: any) {
+        // Si falla, asumir que no está en favoritos
+        setIsFavorite(false);
+      }
+    };
+
+    if (tripId) {
+      checkFavorite();
+    }
+  }, [tripId]);
+
+  // Función para cargar estadísticas de reseñas
+  const loadReviewsStats = useCallback(async () => {
+    if (!tripId) return;
+
+    try {
+      const reviewsResponse = await api.get(`/reviews/trips/${tripId}?page=1&limit=1`);
+      const stats = reviewsResponse.data?.stats;
+      if (stats) {
+        setReviewsStats(prevStats => {
+          // Solo actualizar si realmente cambió
+          if (prevStats && 
+              prevStats.averageRating === stats.averageRating &&
+              prevStats.totalReviews === stats.totalReviews) {
+            return prevStats;
+          }
+          return {
+            averageRating: stats.averageRating || 0,
+            totalReviews: stats.totalReviews || 0,
+          };
+        });
+      } else {
+        setReviewsStats(null);
+      }
+    } catch (err: any) {
+      // Si falla, dejar stats en null
+      setReviewsStats(null);
+    }
+  }, [tripId]);
+
+  // Cargar estadísticas de reseñas inicialmente
+  useEffect(() => {
+    if (tripId) {
+      loadReviewsStats();
+    }
+  }, [tripId, loadReviewsStats]);
+
+  // Función para actualizar estadísticas cuando se crean/actualizan reseñas
+  const handleReviewsUpdate = useCallback(async () => {
+    await loadReviewsStats();
+  }, [loadReviewsStats]);
+
+  // Registrar vista de promoter si existe en la URL
+  useEffect(() => {
+    const registerPromoterView = async () => {
+      if (!tripId || !promoterCode || viewRegistered.current) {
+        return;
+      }
+
+      try {
+        viewRegistered.current = true;
+        const response = await api.post(`/trips/${tripId}/view`, {}, {
+          params: { promoter: promoterCode }
+        });
+        console.log('Vista de promoter registrada:', response.data);
+      } catch (err: any) {
+        // No mostrar error al usuario, solo loguear
+        console.warn('Error al registrar vista de promoter:', err?.response?.data?.message || err?.message);
+        // Si falla, permitir intentar de nuevo en la próxima carga
+        viewRegistered.current = false;
+      }
+    };
+
+    // Registrar vista después de un pequeño delay para no bloquear la carga del viaje
+    if (promoterCode) {
+      const timer = setTimeout(() => {
+        registerPromoterView();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [tripId, promoterCode]);
 
   useEffect(() => {
     const fetchTrip = async () => {
@@ -207,6 +306,30 @@ function Page() {
     ? `${trip.destinationRegion}${trip.city?.nameCity ? ` • ${trip.city.nameCity}` : ''}`
     : trip?.city?.nameCity || "Ubicación no especificada";
 
+  // Toggle favorito
+  const handleToggleFavorite = async () => {
+    if (!tripId || togglingFavorite) return;
+
+    try {
+      setTogglingFavorite(true);
+      const response = await api.post(`/favorites/trips/${tripId}`);
+      
+      const newFavoriteState = response.data?.data?.isFavorite || false;
+      setIsFavorite(newFavoriteState);
+      
+      toast.success(
+        newFavoriteState 
+          ? "Agregado a favoritos" 
+          : "Removido de favoritos"
+      );
+    } catch (err: any) {
+      console.error("Error al toggle favorito:", err);
+      toast.error(err?.response?.data?.message || "No se pudo actualizar favoritos");
+    } finally {
+      setTogglingFavorite(false);
+    }
+  };
+
   if (loading) {
     return <TripDetailSkeleton />;
   }
@@ -224,21 +347,29 @@ function Page() {
   return (
     <div className="bg-[#fdfdfc] text-[#121717] dark:bg-[#1a1a1a] dark:text-gray-100 min-h-screen">
       <CustomersNav />
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-332 mx-auto px-6 py-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div className="space-y-2">
-          <Breadcrumbs items={[
-            { label: "Inicio", href: "/customers" },
-            { label: "Experiencias", href: "/customers/search" },
-            { label: trip.category || "Viaje" },
-          ]} />
-          <h1 className="text-4xl font-extrabold tracking-tight">
+          <h1 className="text-4xl font-caveat font-bold tracking-tight">
             {trip.title}
           </h1>
           <div className="flex items-center gap-4 text-sm">
-            <span className="flex items-center gap-1 font-semibold">
-              <Star className="size-4 text-yellow-500" /> Sin reseñas aún
-            </span>
+            {reviewsStats && reviewsStats.totalReviews > 0 ? (
+              <span className="flex items-center gap-1 font-semibold">
+                <Star className="size-4 text-yellow-500 fill-yellow-500" />
+                <span className="font-bold">{reviewsStats.averageRating.toFixed(1)}</span>
+                <a href="#reviews" className="hover:underline text-gray-600 dark:text-gray-400">
+                  ({reviewsStats.totalReviews} {reviewsStats.totalReviews === 1 ? 'reseña' : 'reseñas'})
+                </a>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 font-semibold text-gray-500">
+                <Star className="size-4 text-gray-400" />
+                <a href="#reviews" className="hover:underline">
+                  Sin reseñas aún
+                </a>
+              </span>
+            )}
             <span className="text-gray-400">•</span>
             <span className="underline font-medium cursor-pointer">
               {location}
@@ -246,7 +377,7 @@ function Page() {
             {(trip.startDate || trip.endDate) && (
               <>
                 <span className="text-gray-400">•</span>
-                <span className="text-gray-600">
+                <span className="text-gray-500 text-xs">
                   {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
                 </span>
               </>
@@ -255,7 +386,18 @@ function Page() {
         </div>
         <div className="flex gap-2">
           <ActionButton icon={Share2} label="Compartir" />
-          <ActionButton icon={Heart} label="Guardar" />
+          <button
+            onClick={handleToggleFavorite}
+            disabled={togglingFavorite}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-all font-semibold text-sm ${
+              isFavorite
+                ? "border-pink-300 dark:border-pink-500 bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400"
+                : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+            } ${togglingFavorite ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            <Heart className={`size-4 ${isFavorite ? "fill-pink-500 dark:fill-pink-400 text-pink-500 dark:text-pink-400" : ""}`} />
+            {isFavorite ? "Guardado" : "Guardar"}
+          </button>
         </div>
       </div>
 
@@ -305,6 +447,7 @@ function Page() {
               startDateFallback={trip.startDate}
               endDateFallback={trip.endDate}
               maxPersons={trip.maxPersons}
+              promoterCode={promoterCode || undefined}
             />
             <TrustBadges items={[
               {
@@ -322,11 +465,21 @@ function Page() {
         </div>
       </div>
 
-      <ReviewsSection rating="0.00" total="0" reviews={[]} />
+      <div id="reviews">
+        <ReviewsSection tripId={trip.idTrip} onReviewsUpdate={handleReviewsUpdate} />
+      </div>
       <PoliciesSection rules={[]} safety={[]} />
       <ExperienceFooter links={['Privacidad', 'Términos', 'Mapa del sitio', 'Contacto']} />
       </main>
     </div>
+  );
+}
+
+function Page() {
+  return (
+    <Suspense fallback={<TripDetailSkeleton />}>
+      <PageContent />
+    </Suspense>
   );
 }
 

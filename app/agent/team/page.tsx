@@ -71,13 +71,16 @@ export default function TeamPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
     const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
     const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+    const [viewingMember, setViewingMember] = useState<TeamMember | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [copiedPassword, setCopiedPassword] = useState(false);
+    const [temporaryPasswords, setTemporaryPasswords] = useState<Record<string, string>>({});
     
     const membersPerPage = 4;
     const containerRef = useRef<HTMLDivElement>(null);
@@ -662,11 +665,16 @@ export default function TeamPage() {
                 const tempPassword = response.data?.data?.temporaryPassword;
                 
                 if (tempPassword) {
-                    // Guardar la contraseña temporal en el estado del miembro
+                    // Guardar la contraseña temporal en el estado del miembro y en el mapa de contraseñas
                     const newMember = {
                         ...mapApiMemberToTeamMember(response.data.data),
                         temporaryPassword: tempPassword,
                     };
+                    // Guardar la contraseña temporal asociada al ID del miembro
+                    setTemporaryPasswords(prev => ({
+                        ...prev,
+                        [newMember.id]: tempPassword
+                    }));
                     setSelectedMember(newMember);
                     setIsModalOpen(false);
                     setIsEmailModalOpen(true);
@@ -1057,49 +1065,49 @@ export default function TeamPage() {
                         <table className="w-full">
                             <thead>
                                 <tr className="table-header border-b border-zinc-200 bg-zinc-50/50">
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Miembro</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Email</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Teléfono</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">DNI/ID</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Rol</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Estado</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-zinc-500 uppercase tracking-wider">Acciones</th>
+                                    <th className="px-3 py-2 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Miembro</th>
+                                    <th className="px-3 py-2 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Email</th>
+                                    <th className="px-3 py-2 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Teléfono</th>
+                                    <th className="px-3 py-2 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">DNI/ID</th>
+                                    <th className="px-3 py-2 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Rol</th>
+                                    <th className="px-3 py-2 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">Estado</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-zinc-500 uppercase tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100">
                                 {loading ? (
                                     Array.from({ length: 4 }).map((_, index) => (
                                         <tr key={`skeleton-${index}`} className="animate-pulse">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="size-10 rounded-full bg-zinc-200 shrink-0"></div>
-                                                    <div className="flex flex-col gap-2">
-                                                        <div className="h-4 w-32 bg-zinc-200 rounded"></div>
+                                            <td className="px-3 py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="size-8 rounded-full bg-zinc-200 shrink-0"></div>
+                                                    <div className="flex flex-col gap-1.5">
                                                         <div className="h-3 w-24 bg-zinc-200 rounded"></div>
+                                                        <div className="h-2 w-20 bg-zinc-200 rounded"></div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-4 w-48 bg-zinc-200 rounded"></div>
+                                            <td className="px-3 py-2">
+                                                <div className="h-3 w-32 bg-zinc-200 rounded"></div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-4 w-32 bg-zinc-200 rounded"></div>
+                                            <td className="px-3 py-2">
+                                                <div className="h-3 w-24 bg-zinc-200 rounded"></div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-4 w-24 bg-zinc-200 rounded"></div>
+                                            <td className="px-3 py-2">
+                                                <div className="h-3 w-20 bg-zinc-200 rounded"></div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-6 w-20 bg-zinc-200 rounded-full"></div>
+                                            <td className="px-3 py-2">
+                                                <div className="h-5 w-16 bg-zinc-200 rounded-full"></div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-4 w-16 bg-zinc-200 rounded"></div>
+                                            <td className="px-3 py-2">
+                                                <div className="h-3 w-14 bg-zinc-200 rounded"></div>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-3 py-2">
                                                 <div className="flex justify-end gap-1">
-                                                    <div className="size-8 bg-zinc-200 rounded-lg"></div>
-                                                    <div className="size-8 bg-zinc-200 rounded-lg"></div>
-                                                    <div className="size-8 bg-zinc-200 rounded-lg"></div>
-                                                    <div className="size-8 bg-zinc-200 rounded-lg"></div>
+                                                    <div className="size-6 bg-zinc-200 rounded-lg"></div>
+                                                    <div className="size-6 bg-zinc-200 rounded-lg"></div>
+                                                    <div className="size-6 bg-zinc-200 rounded-lg"></div>
+                                                    <div className="size-6 bg-zinc-200 rounded-lg"></div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1124,28 +1132,12 @@ export default function TeamPage() {
                                             key={member.id} 
                                             className="member-row hover:bg-zinc-50/50 transition-colors group"
                                             style={{ animationDelay: `${index * 0.05}s` }}
-                                            onMouseEnter={(e) => {
-                                                gsap.to(e.currentTarget, {
-                                                    x: 5,
-                                                    scale: 1.01,
-                                                    duration: 0.3,
-                                                    ease: "power2.out",
-                                                });
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                gsap.to(e.currentTarget, {
-                                                    x: 0,
-                                                    scale: 1,
-                                                    duration: 0.3,
-                                                    ease: "power2.out",
-                                                });
-                                            }}
                                         >
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
+                                            <td className="px-3 py-2">
+                                                <div className="flex items-center gap-2">
                                                     {member.avatar ? (
                                                         <div 
-                                                            className="member-avatar size-10 rounded-full bg-zinc-100 overflow-hidden shrink-0 ring-2 ring-zinc-200 group-hover:ring-indigo-300 transition-all cursor-pointer"
+                                                            className="member-avatar size-8 rounded-full bg-zinc-100 overflow-hidden shrink-0 ring-2 ring-zinc-200 group-hover:ring-indigo-300 transition-all cursor-pointer"
                                                             onMouseEnter={(e) => {
                                                                 gsap.to(e.currentTarget, {
                                                                     scale: 1.1,
@@ -1171,7 +1163,7 @@ export default function TeamPage() {
                                                         </div>
                                                     ) : (
                                                         <div 
-                                                            className="member-avatar size-10 rounded-full bg-lineal-to-br from-indigo-100 to-purple-100 flex items-center justify-center shrink-0 ring-2 ring-zinc-200 group-hover:ring-indigo-300 transition-all cursor-pointer"
+                                                            className="member-avatar size-8 rounded-full bg-lineal-to-br from-indigo-100 to-purple-100 flex items-center justify-center shrink-0 ring-2 ring-zinc-200 group-hover:ring-indigo-300 transition-all cursor-pointer"
                                                             onMouseEnter={(e) => {
                                                                 gsap.to(e.currentTarget, {
                                                                     scale: 1.1,
@@ -1189,7 +1181,7 @@ export default function TeamPage() {
                                                                 });
                                                             }}
                                                         >
-                                                            <User className="size-5 text-indigo-600" />
+                                                            <User className="size-4 text-indigo-600" />
                                                         </div>
                                                     )}
                                                     <div>
@@ -1198,14 +1190,14 @@ export default function TeamPage() {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-zinc-700 text-sm">{member.email}</td>
-                                            <td className="px-6 py-4 text-zinc-600 text-sm">
+                                            <td className="px-3 py-2 text-zinc-700 text-sm">{member.email}</td>
+                                            <td className="px-3 py-2 text-zinc-600 text-sm">
                                                 {member.phone || <span className="text-zinc-400 italic">No proporcionado</span>}
                                             </td>
-                                            <td className="px-6 py-4 text-zinc-600 text-sm tabular-nums">
+                                            <td className="px-3 py-2 text-zinc-600 text-sm tabular-nums">
                                                 {member.dni || <span className="text-zinc-400 italic">Pendiente</span>}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-3 py-2">
                                                 <span className={cn(getRoleBadgeClass(member.role), "role-badge inline-block cursor-pointer")}
                                                     onMouseEnter={(e) => {
                                                         gsap.to(e.currentTarget, {
@@ -1227,68 +1219,46 @@ export default function TeamPage() {
                                                     {member.role}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-3 py-2">
                                                 <div className="status-indicator" data-member-id={member.id}>
                                                     {getStatusIndicator(member.status)}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-3 py-2">
                                                 <div className="flex justify-end gap-1">
                                                     <button
-                                                        onClick={() => handleToggleActive(member)}
-                                                        disabled={togglingId === member.id}
-                                                        className={cn(
-                                                            "action-button p-2 rounded-lg transition-all disabled:opacity-50",
-                                                            member.status === 'Active' 
-                                                                ? "hover:bg-amber-50 text-zinc-400 hover:text-amber-600" 
-                                                                : "hover:bg-emerald-50 text-zinc-400 hover:text-emerald-600"
-                                                        )}
-                                                        title={member.status === 'Active' ? 'Desactivar miembro' : 'Activar miembro'}
-                                                        onMouseEnter={(e) => {
-                                                            gsap.to(e.currentTarget, {
-                                                                scale: 1.15,
-                                                                rotation: 5,
-                                                                duration: 0.2,
-                                                                ease: "back.out(1.7)",
-                                                            });
+                                                        onClick={() => {
+                                                            setViewingMember(member);
+                                                            setIsInfoModalOpen(true);
+                                                            setTimeout(() => {
+                                                                gsap.fromTo(
+                                                                    ".info-member-modal",
+                                                                    {
+                                                                        opacity: 0,
+                                                                        scale: 0.8,
+                                                                        y: 50,
+                                                                        rotationX: -15,
+                                                                    },
+                                                                    {
+                                                                        opacity: 1,
+                                                                        scale: 1,
+                                                                        y: 0,
+                                                                        rotationX: 0,
+                                                                        duration: 0.6,
+                                                                        ease: "back.out(1.7)",
+                                                                    }
+                                                                );
+                                                            }, 10);
                                                         }}
-                                                        onMouseLeave={(e) => {
-                                                            gsap.to(e.currentTarget, {
-                                                                scale: 1,
-                                                                rotation: 0,
-                                                                duration: 0.2,
-                                                                ease: "power2.out",
-                                                            });
-                                                        }}
+                                                        className="action-button p-2 hover:bg-indigo-50 rounded-lg text-zinc-400 hover:text-indigo-600 transition-all"
+                                                        title="Ver información"
                                                     >
-                                                        {togglingId === member.id ? (
-                                                            <Loader2 className="size-4 animate-spin" />
-                                                        ) : member.status === 'Active' ? (
-                                                            <EyeOff className="size-4" />
-                                                        ) : (
-                                                            <CheckCircle2 className="size-4" />
-                                                        )}
+                                                        <Info className="size-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => handleEditMember(member)}
                                                         className="action-button p-2 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-zinc-900 transition-all"
                                                         title="Editar"
-                                                        onMouseEnter={(e) => {
-                                                            gsap.to(e.currentTarget, {
-                                                                scale: 1.15,
-                                                                rotation: 5,
-                                                                duration: 0.2,
-                                                                ease: "back.out(1.7)",
-                                                            });
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            gsap.to(e.currentTarget, {
-                                                                scale: 1,
-                                                                rotation: 0,
-                                                                duration: 0.2,
-                                                                ease: "power2.out",
-                                                            });
-                                                        }}
                                                     >
                                                         <Edit className="size-4" />
                                                     </button>
@@ -1297,22 +1267,6 @@ export default function TeamPage() {
                                                         disabled={deletingId === member.id}
                                                         className="action-button p-2 hover:bg-red-50 rounded-lg text-zinc-400 hover:text-red-600 transition-all disabled:opacity-50"
                                                         title="Eliminar"
-                                                        onMouseEnter={(e) => {
-                                                            gsap.to(e.currentTarget, {
-                                                                scale: 1.15,
-                                                                rotation: -5,
-                                                                duration: 0.2,
-                                                                ease: "back.out(1.7)",
-                                                            });
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            gsap.to(e.currentTarget, {
-                                                                scale: 1,
-                                                                rotation: 0,
-                                                                duration: 0.2,
-                                                                ease: "power2.out",
-                                                            });
-                                                        }}
                                                     >
                                                         {deletingId === member.id ? (
                                                             <Loader2 className="size-4 animate-spin" />
@@ -1824,6 +1778,164 @@ export default function TeamPage() {
                                     ) : (
                                         'Eliminar Miembro'
                                     )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de información del miembro */}
+            {isInfoModalOpen && viewingMember && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div 
+                        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+                        onClick={() => setIsInfoModalOpen(false)}
+                    />
+                    
+                    <div className="info-member-modal relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white border-b border-zinc-200 px-6 py-4 flex items-center justify-between z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-100 rounded-lg">
+                                    <Info className="size-5 text-indigo-600" />
+                                </div>
+                                <h3 className="text-xl font-bold text-zinc-900">Información del Miembro</h3>
+                            </div>
+                            <button
+                                onClick={() => setIsInfoModalOpen(false)}
+                                className="p-2 text-zinc-400 hover:text-zinc-600 rounded-full hover:bg-zinc-100 transition-colors"
+                            >
+                                <X className="size-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-6">
+                            {/* Header con avatar y nombre */}
+                            <div className="flex items-center gap-4 pb-6 border-b border-zinc-200">
+                                {viewingMember.avatar ? (
+                                    <div className="size-20 rounded-full bg-zinc-100 overflow-hidden shrink-0 ring-4 ring-zinc-200">
+                                        <img
+                                            alt={viewingMember.name}
+                                            className="w-full h-full object-cover"
+                                            src={viewingMember.avatar}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="size-20 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center shrink-0 ring-4 ring-zinc-200">
+                                        <User className="size-10 text-indigo-600" />
+                                    </div>
+                                )}
+                                <div>
+                                    <h4 className="text-2xl font-bold text-zinc-900 mb-1">{viewingMember.name}</h4>
+                                    <p className="text-sm text-zinc-500">Miembro desde {viewingMember.joinedDate}</p>
+                                </div>
+                            </div>
+
+                            {/* Información detallada */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-tight">Email</label>
+                                    <p className="text-sm font-medium text-zinc-900">{viewingMember.email}</p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-tight">Teléfono</label>
+                                    <p className="text-sm font-medium text-zinc-900">
+                                        {viewingMember.phone || <span className="text-zinc-400 italic">No proporcionado</span>}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-tight">DNI/NIT</label>
+                                    <p className="text-sm font-medium text-zinc-900">
+                                        {viewingMember.dni || <span className="text-zinc-400 italic">Pendiente</span>}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-tight">Rol</label>
+                                    <div>
+                                        <span className={cn(getRoleBadgeClass(viewingMember.role), "inline-block")}>
+                                            {viewingMember.role}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-tight">Estado</label>
+                                    <div>
+                                        {getStatusIndicator(viewingMember.status)}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-tight">Fecha de Ingreso</label>
+                                    <p className="text-sm font-medium text-zinc-900">{viewingMember.joinedDate}</p>
+                                </div>
+                            </div>
+
+                            {/* Contraseña Temporal */}
+                            {temporaryPasswords[viewingMember.id] && (
+                                <div className="pt-4 border-t border-zinc-200">
+                                    <label className="block text-xs font-semibold text-zinc-700 uppercase mb-2">Contraseña Temporal</label>
+                                    <div className="flex gap-2">
+                                        <div className="flex-1 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-lg font-mono text-sm text-zinc-900">
+                                            {temporaryPasswords[viewingMember.id]}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyPassword(temporaryPasswords[viewingMember.id])}
+                                            className="px-4 py-3 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors flex items-center justify-center"
+                                            title="Copiar contraseña"
+                                        >
+                                            {copiedPassword ? (
+                                                <CheckCircle2 className="size-5" />
+                                            ) : (
+                                                <Copy className="size-5" />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-zinc-500 mt-2">
+                                        Esta contraseña fue generada cuando se creó el miembro. Compártela de forma segura.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Descripción de permisos según el rol */}
+                            <div className="pt-4 border-t border-zinc-200">
+                                <h5 className="text-sm font-semibold text-zinc-900 mb-2">Permisos y Accesos</h5>
+                                <p className="text-sm text-zinc-600 leading-relaxed">
+                                    {viewingMember.role === 'Admin' && (
+                                        <>Los <span className="font-semibold">Admins</span> tienen control total sobre la agencia, incluyendo facturación, gestión de miembros, creación y edición de expediciones, y acceso a todos los reportes y analíticas.</>
+                                    )}
+                                    {viewingMember.role === 'Organizer' && (
+                                        <>Los <span className="font-semibold">Organizers</span> pueden crear y gestionar expediciones, comunicarse con viajeros, ver reportes específicos y gestionar reservas. No tienen acceso a la configuración de la agencia ni a la gestión de miembros.</>
+                                    )}
+                                    {viewingMember.role === 'Jipper' && (
+                                        <>Los <span className="font-semibold">Jippers</span> tienen permisos limitados para tareas específicas asignadas por los administradores. Pueden ver información básica pero no pueden crear o modificar expediciones.</>
+                                    )}
+                                </p>
+                            </div>
+
+                            {/* Botones de acción */}
+                            <div className="flex items-center gap-3 pt-4 border-t border-zinc-200">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsInfoModalOpen(false);
+                                        handleEditMember(viewingMember);
+                                    }}
+                                    className="flex-1 px-4 py-3 text-sm font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Edit className="size-4" />
+                                    Editar Miembro
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsInfoModalOpen(false)}
+                                    className="flex-1 px-4 py-3 text-sm font-medium text-white bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors"
+                                >
+                                    Cerrar
                                 </button>
                             </div>
                         </div>
