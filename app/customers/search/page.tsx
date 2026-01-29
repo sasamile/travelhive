@@ -286,7 +286,7 @@ function TripsMap({ trips }: { trips: PublicTrip[] }) {
               longitude={trip.adjustedLng}
               latitude={trip.adjustedLat}
             >
-              <MarkerContent className="cursor-pointer">
+              <MarkerContent>
                 <div
                   onMouseEnter={() => {
                     // Solo mostrar tarjeta centrada si hay puntos cercanos
@@ -299,18 +299,11 @@ function TripsMap({ trips }: { trips: PublicTrip[] }) {
                       setHoveredTrip(null);
                     }
                   }}
-                  className="marker-price p-2"
-                  style={{ 
-                    cursor: 'pointer',
-                    display: 'inline-block',
-                    width: '100%',
-                    height: '100%'
-                  }}
+                  className="marker-price"
                 >
                   <Link
                     href={`/customers/${trip.idTrip}`}
-                    className="flex items-center gap-1 rounded-full border-2 border-white bg-primary px-3 py-1.5 text-xs font-bold text-white shadow-lg hover:bg-primary/90 transition-colors"
-                    style={{ cursor: 'pointer', display: 'inline-block' }}
+                    className="flex items-center gap-1 rounded-full border-2 border-white bg-primary px-3 py-1.5 text-xs font-bold text-white shadow-lg cursor-pointer z-50"
                     onClick={(e) => {
                       e.stopPropagation();
                       // Animación al hacer click
@@ -323,7 +316,6 @@ function TripsMap({ trips }: { trips: PublicTrip[] }) {
                       });
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.cursor = 'pointer';
                       gsap.to(e.currentTarget, {
                         scale: 1.15,
                         duration: 0.3,
@@ -331,7 +323,6 @@ function TripsMap({ trips }: { trips: PublicTrip[] }) {
                       });
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.cursor = 'pointer';
                       gsap.to(e.currentTarget, {
                         scale: 1,
                         duration: 0.2,
@@ -348,57 +339,57 @@ function TripsMap({ trips }: { trips: PublicTrip[] }) {
               {!trip.hasNearby && (
                 <MarkerTooltip
                   offset={[trip.offsetX, trip.offsetY - 10]}
-                  className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-xl border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden min-w-[280px] max-w-[320px] p-0 m-0"
                 >
-                  {coverImage && (
-                    <div className="relative w-full h-40 overflow-hidden rounded-t-xl">
-                      <Image
-                        src={coverImage}
-                        alt={trip.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <Link
-                      href={`/customers/${trip.idTrip}`}
-                      className="block"
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <h4 className="font-bold text-base mb-1 hover:text-primary transition-colors line-clamp-2">
-                        {trip.title}
-                      </h4>
-                      <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
-                        {trip.destinationRegion ? (
-                          <>
-                            <span>{trip.destinationRegion}</span>
-                            {trip.city?.nameCity && (
-                              <>
-                                <span>•</span>
-                                <span>{trip.city.nameCity}</span>
-                              </>
-                            )}
-                          </>
-                        ) : (
-                          <span>{trip.city?.nameCity || ""}</span>
-                        )}
+                  <div className="min-w-[280px] max-w-[320px] bg-white dark:bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+                    {coverImage && (
+                      <div className="relative w-full h-40 overflow-hidden">
+                        <Image
+                          src={coverImage}
+                          alt={trip.title}
+                          fill
+                          className="object-cover"
+                        />
                       </div>
-                      {trip.durationDays && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                          {trip.durationDays} {trip.durationDays === 1 ? "día" : "días"}
-                        </p>
-                      )}
-                      {priceFrom && (
-                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Desde</p>
-                          <p className="text-lg font-bold text-primary">
-                            {priceLabel}
-                            <span className="text-xs font-normal text-gray-500"> / pers.</span>
-                          </p>
+                    )}
+                    <div className="p-4">
+                      <Link
+                        href={`/customers/${trip.idTrip}`}
+                        className="block"
+                      >
+                        <h4 className="font-bold text-base mb-1 hover:text-primary transition-colors line-clamp-2">
+                          {trip.title}
+                        </h4>
+                        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
+                          {trip.destinationRegion ? (
+                            <>
+                              <span>{trip.destinationRegion}</span>
+                              {trip.city?.nameCity && (
+                                <>
+                                  <span>•</span>
+                                  <span>{trip.city.nameCity}</span>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            <span>{trip.city?.nameCity || ""}</span>
+                          )}
                         </div>
-                      )}
-                    </Link>
+                        {trip.durationDays && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                            {trip.durationDays} {trip.durationDays === 1 ? "día" : "días"}
+                          </p>
+                        )}
+                        {priceFrom && (
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Desde</p>
+                            <p className="text-lg font-bold text-primary">
+                              {priceLabel}
+                              <span className="text-xs font-normal text-gray-500"> / pers.</span>
+                            </p>
+                          </div>
+                        )}
+                      </Link>
+                    </div>
                   </div>
                 </MarkerTooltip>
               )}
