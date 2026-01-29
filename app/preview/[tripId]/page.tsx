@@ -933,7 +933,9 @@ export default function PreviewPage() {
         </div>
       </div>
 
-      <ReviewsSection rating="0.00" total="0" reviews={[]} />
+      {!isTempTrip && tripIdParam && (
+        <ReviewsSection tripId={tripIdParam} />
+      )}
       <PoliciesSection rules={rules} safety={safety} cancellationPolicy={cancellationPolicyText} />
       <ExperienceFooter links={['Privacidad', 'Términos', 'Mapa del sitio', 'Contacto']} />
     </main>
