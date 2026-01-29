@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
   },
   // Proxy para redirigir todas las rutas del backend al mismo dominio
   async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://travelhive-back-production.up.railway.app";
     
     return [
       {
