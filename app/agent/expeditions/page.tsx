@@ -26,6 +26,8 @@ import {
   Loader2,
   BarChart3,
 } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { AgentHeader } from "@/components/agent/AgentHeader";
 import NewTripModal from "@/components/agent/NewTripModal";
 import TripStatsModal from "@/components/agent/TripStatsModal";
@@ -655,6 +657,24 @@ export default function ExpeditionsPage() {
     }
   };
 
+  // Función para formatear fechas de manera compacta
+  const formatDatesCompact = (datesString?: string, startDate?: string, endDate?: string): string => {
+    if (startDate && endDate) {
+      try {
+        const start = format(new Date(startDate), "d MMM", { locale: es });
+        const end = format(new Date(endDate), "d MMM yyyy", { locale: es });
+        return `${start} - ${end}`;
+      } catch {
+        return datesString || "A confirmar";
+      }
+    }
+    // Si viene como string, limpiar espacios y saltos de línea
+    if (datesString) {
+      return datesString.replace(/\s+/g, " ").trim();
+    }
+    return "A confirmar";
+  };
+
   const tabs = [
     { id: "active", label: "Activas", count: counts.active },
     { id: "drafts", label: "Borradores", count: counts.drafts },
@@ -706,7 +726,7 @@ export default function ExpeditionsPage() {
         }
       />
 
-      <div className="p-8 max-w-7xl mx-auto w-full space-y-8">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-full mx-auto w-full space-y-6 sm:space-y-8 overflow-x-hidden">
         {/* Header */}
         <div className="space-y-6">
           <div>
@@ -737,7 +757,7 @@ export default function ExpeditionsPage() {
         </div>
 
         {/* Expeditions Table */}
-        <div ref={cardsRef} className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+        <div ref={cardsRef} className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden -mx-4 sm:mx-0">
           {loading ? (
             <div className="p-8">
               <div className="space-y-4">
@@ -772,28 +792,25 @@ export default function ExpeditionsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50/50">
-                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                       Expedición
                     </th>
-                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider hidden lg:table-cell">
                       Ubicación
                     </th>
-                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                       Fechas
                     </th>
-                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                      Duración
-                    </th>
-                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                       Ocupación
                     </th>
-                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                    <th className="px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right hidden xl:table-cell">
                       Ingresos
                     </th>
-                    <th className="px-6 py-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                    <th className="px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right">
                       Acciones
                     </th>
                   </tr>
@@ -827,16 +844,16 @@ export default function ExpeditionsPage() {
                         style={{ animationDelay: `${index * 0.05}s` }}
                       >
                         {/* Expedición */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2.5">
                             <div className="relative shrink-0">
                               <div
-                                className="size-12 rounded-lg bg-zinc-100 bg-cover bg-center border border-zinc-200 shadow-sm"
+                                className="size-10 rounded-lg bg-zinc-100 bg-cover bg-center border border-zinc-200"
                                 style={{ backgroundImage: `url('${expedition.image}')` }}
                               />
                             </div>
                             <div className="min-w-0">
-                              <h3 className="text-sm font-semibold text-zinc-900 truncate">
+                              <h3 className="text-sm font-semibold text-zinc-900 truncate max-w-[150px] lg:max-w-none">
                                 {expedition.title}
                               </h3>
                             </div>
@@ -844,9 +861,9 @@ export default function ExpeditionsPage() {
                         </td>
 
                         {/* Estado */}
-                        <td className="px-6 py-4">
+                        <td className="px-3 py-3">
                           <span className={cn(
-                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-sm",
+                            "inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border",
                             isPublished
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : isDraft
@@ -869,32 +886,26 @@ export default function ExpeditionsPage() {
                         </td>
 
                         {/* Ubicación */}
-                        <td className="px-6 py-4">
+                        <td className="px-3 py-3 hidden lg:table-cell">
                           <div className="flex items-center gap-1.5 text-sm text-zinc-600">
                             <MapPin className="size-3.5 shrink-0" />
-                            <span className="truncate">{expedition.location}</span>
+                            <span className="truncate max-w-[120px]">{expedition.location}</span>
                           </div>
                         </td>
 
                         {/* Fechas */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1.5 text-sm text-zinc-600">
-                            <Calendar className="size-3.5 shrink-0" />
-                            <span>{expedition.dates}</span>
-                          </div>
-                        </td>
-
-                        {/* Duración */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1.5 text-sm text-zinc-600">
-                            <Clock className="size-3.5 shrink-0" />
-                            <span>{expedition.duration}</span>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-1.5 text-xs text-zinc-600">
+                            <Calendar className="size-3 shrink-0" />
+                            <span className="font-medium whitespace-nowrap">
+                              {formatDatesCompact(expedition.dates, expedition.startDate, expedition.endDate)}
+                            </span>
                           </div>
                         </td>
 
                         {/* Ocupación */}
-                        <td className="px-6 py-4">
-                          <div className="min-w-[120px]">
+                        <td className="px-3 py-3">
+                          <div className="min-w-[100px]">
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="text-xs text-zinc-500">
                                 {expedition.occupancy.current}/{expedition.occupancy.total}
@@ -922,7 +933,7 @@ export default function ExpeditionsPage() {
                         </td>
 
                         {/* Ingresos */}
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-3 py-3 text-right hidden xl:table-cell">
                           <div className="flex items-center justify-end gap-1.5">
                             <DollarSign className="size-4 text-zinc-500" />
                             <span className="text-sm font-semibold text-zinc-900">{expedition.revenue}</span>
@@ -930,7 +941,7 @@ export default function ExpeditionsPage() {
                         </td>
 
                         {/* Acciones */}
-                        <td className="px-6 py-4">
+                        <td className="px-3 py-3">
                           <div className="flex items-center justify-end">
                             <DropdownMenu
                               open={openMenuId === expedition.id}
@@ -940,10 +951,10 @@ export default function ExpeditionsPage() {
                             >
                               <DropdownMenuTrigger asChild>
                                 <button 
-                                  className="text-zinc-900 transition-colors  group-hover:opacity-100 outline-none p-1.5 rounded-lg hover:bg-zinc-100"
+                                  className="text-zinc-900 transition-colors group-hover:opacity-100 outline-none p-1.5 rounded-lg hover:bg-zinc-100"
                                   disabled={updatingId === expedition.id}
                                 >
-                                  <MoreVertical className="size-5" />
+                                  <MoreVertical className="size-4" />
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent 

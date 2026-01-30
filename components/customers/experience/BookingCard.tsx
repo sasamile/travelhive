@@ -108,8 +108,7 @@ export function BookingCard({
   const [selectedExpeditionId, setSelectedExpeditionId] = useState<string>(
     expeditionsWithCapacity[0]?.idExpedition || ""
   );
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
+  const [persons, setPersons] = useState(1);
   const [discountCode, setDiscountCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [validatingDiscount, setValidatingDiscount] = useState(false);
@@ -189,8 +188,6 @@ export function BookingCard({
 
   const capacityAvailable =
     selectedExpedition?.capacityAvailable ?? null;
-
-  const persons = adults + children;
   const maxAllowed = typeof maxPersons === "number" ? maxPersons : null;
   const maxByCapacity =
     typeof capacityAvailable === "number" ? capacityAvailable : null;
@@ -205,9 +202,7 @@ export function BookingCard({
   const calculateTotalPrice = () => {
     if (!displayPrice) return null;
     
-    const priceAdult = displayPrice;
-    const priceChild = priceAdult * 0.7; // 70% del precio de adulto
-    const subtotal = (priceAdult * adults) + (priceChild * children);
+    const subtotal = displayPrice * persons;
     
     // Si hay un código de descuento válido aplicado, usar ese total
     if (discountData?.isValid) {
@@ -219,27 +214,20 @@ export function BookingCard({
 
   const finalPrice = calculateTotalPrice();
   const originalSubtotal = displayPrice 
-    ? (displayPrice * adults) + (displayPrice * 0.7 * children)
+    ? displayPrice * persons
     : null;
 
-  const bumpAdults = (delta: number) => {
-    if (delta > 0 && effectiveMax !== null && persons + delta > effectiveMax) {
+  const bumpPersons = (delta: number) => {
+    const newPersons = persons + delta;
+    if (delta > 0 && effectiveMax !== null && newPersons > effectiveMax) {
       toast.error(`Máximo ${effectiveMax} persona(s)`);
       return;
     }
-    setAdults((v) => Math.max(0, v + delta));
-    // Limpiar descuento cuando cambian las personas
-    if (discountData) {
-      setDiscountData(null);
-    }
-  };
-
-  const bumpChildren = (delta: number) => {
-    if (delta > 0 && effectiveMax !== null && persons + delta > effectiveMax) {
-      toast.error(`Máximo ${effectiveMax} persona(s)`);
+    if (newPersons < 1) {
+      toast.error("Debe haber al menos 1 persona");
       return;
     }
-    setChildren((v) => Math.max(0, v + delta));
+    setPersons(newPersons);
     // Limpiar descuento cuando cambian las personas
     if (discountData) {
       setDiscountData(null);
@@ -273,8 +261,8 @@ export function BookingCard({
         idTrip,
         startDate: startIso,
         endDate: endIso,
-        adults,
-        children,
+        adults: persons,
+        children: 0,
         discountCode: discountCode.trim().toUpperCase(),
       });
 
@@ -307,8 +295,6 @@ export function BookingCard({
   const canReserve =
     Boolean(selectedExpedition?.idExpedition) &&
     persons > 0 &&
-    adults >= 0 &&
-    children >= 0 &&
     !isOverMax &&
     (capacityAvailable === null || capacityAvailable >= persons);
 
@@ -512,75 +498,48 @@ export function BookingCard({
                 )}
               </div>
 
-              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-                {[
-                  {
-                    label: "Adultos",
-                    value: adults,
-                    unitPrice: displayPrice,
-                    bump: bumpAdults,
-                    minusLabel: "Restar adulto",
-                    plusLabel: "Sumar adulto",
-                  },
-                  {
-                    label: "Niños",
-                    value: children,
-                    unitPrice: null, // El precio de niños puede venir de otra fuente
-                    bump: bumpChildren,
-                    minusLabel: "Restar niño",
-                    plusLabel: "Sumar niño",
-                  },
-                ].map((row, idx) => (
-                  <div
-                    key={row.label}
-                    className={[
-                      "px-3 py-3 bg-white dark:bg-gray-900",
-                      idx === 0 ? "border-b border-gray-200 dark:border-gray-700" : "",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-extrabold uppercase tracking-widest text-gray-400">
-                          {row.label}
-                        </p>
-                        {typeof row.unitPrice === "number" && row.label === "Adultos" && (
-                          <p className="mt-1 text-xs text-gray-500">
-                            {new Intl.NumberFormat("es-CO", {
-                              style: "currency",
-                              currency,
-                              maximumFractionDigits: 0,
-                            }).format(row.unitPrice)}{" "}
-                            / adulto
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
-                        <button
-                          type="button"
-                          className="h-9 w-10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
-                          onClick={() => row.bump(-1)}
-                          disabled={submitting}
-                          aria-label={row.minusLabel}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <div className="h-9 w-12 flex items-center justify-center font-extrabold tabular-nums">
-                          {row.value}
-                        </div>
-                        <button
-                          type="button"
-                          className="h-9 w-10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
-                          onClick={() => row.bump(1)}
-                          disabled={submitting || isAtMax}
-                          aria-label={row.plusLabel}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold uppercase tracking-widest text-gray-400">
+                      Cantidad de personas
+                    </p>
+                    {typeof displayPrice === "number" && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {new Intl.NumberFormat("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 0,
+                        }).format(displayPrice)}{" "}
+                        / persona
+                      </p>
+                    )}
                   </div>
-                ))}
+
+                  <div className="flex items-center rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
+                    <button
+                      type="button"
+                      className="h-9 w-10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
+                      onClick={() => bumpPersons(-1)}
+                      disabled={submitting || persons <= 1}
+                      aria-label="Restar persona"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <div className="h-9 w-12 flex items-center justify-center font-extrabold tabular-nums">
+                      {persons}
+                    </div>
+                    <button
+                      type="button"
+                      className="h-9 w-10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
+                      onClick={() => bumpPersons(1)}
+                      disabled={submitting || isAtMax}
+                      aria-label="Sumar persona"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 overflow-hidden">
@@ -737,8 +696,8 @@ export function BookingCard({
               idTrip,
               startDate: startIso,
               endDate: endIso,
-              adults,
-              children,
+              adults: persons,
+              children: 0,
               ...(codeToSend ? { discountCode: codeToSend } : {}),
               ...(promoterCode ? { promoterCode: promoterCode.toUpperCase() } : {}),
             });

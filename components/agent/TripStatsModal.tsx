@@ -24,7 +24,8 @@ interface Promoter {
   email?: string;
   phone?: string;
   referralCount: number;
-  views?: number;
+  viewCount: number; // Vistas de este promoter para este trip específico
+  views?: number; // Mantener por compatibilidad
   conversionRate?: number;
   revenueGenerated?: number;
   isActive: boolean;
@@ -335,12 +336,16 @@ export default function TripStatsModal({ isOpen, onClose, tripId, expeditionId }
   const conversionRate = stats?.totalStats.conversionRate || (totalViews > 0 ? (stats?.totalStats.totalBookings || 0) / totalViews * 100 : 0);
 
   // Calculate promoter stats
-  const promotersWithStats = promotersList.map(p => ({
-    ...p,
-    views: p.views || 0,
-    conversionRate: p.conversionRate || (p.views && p.views > 0 ? (p.referralCount / p.views) * 100 : 0),
-    revenueGenerated: p.revenueGenerated || 0,
-  }));
+  const promotersWithStats = promotersList.map(p => {
+    // Usar viewCount si está disponible, sino usar views (compatibilidad)
+    const views = p.viewCount !== undefined ? p.viewCount : (p.views || 0);
+    return {
+      ...p,
+      views: views,
+      conversionRate: p.conversionRate || (views > 0 ? (p.referralCount / views) * 100 : 0),
+      revenueGenerated: p.revenueGenerated || 0,
+    };
+  });
 
   const topPerformer = promotersWithStats.length > 0 
     ? promotersWithStats.reduce((max, p) => (p.revenueGenerated || 0) > (max.revenueGenerated || 0) ? p : max)
@@ -518,10 +523,13 @@ export default function TripStatsModal({ isOpen, onClose, tripId, expeditionId }
                                 Promoter Code
                               </th>
                               <th className="px-6 py-3 text-[10px] font-bold text-zinc-400 uppercase text-center">
-                                Views
+                                Vistas
+                              </th>
+                              <th className="px-6 py-3 text-[10px] font-bold text-zinc-400 uppercase text-center">
+                                Referidos
                               </th>
                               <th className="px-6 py-3 text-[10px] font-bold text-zinc-400 uppercase text-right">
-                                Sales Generated
+                                Ventas Generadas
                               </th>
                             </tr>
                           </thead>
@@ -533,6 +541,9 @@ export default function TripStatsModal({ isOpen, onClose, tripId, expeditionId }
                                 </td>
                                 <td className="px-6 py-3 text-center text-zinc-600">
                                   {promoter.views.toLocaleString()}
+                                </td>
+                                <td className="px-6 py-3 text-center text-zinc-600 font-semibold">
+                                  {promoter.referralCount || 0}
                                 </td>
                                 <td className="px-6 py-3 text-right font-semibold">
                                   {formatCurrency(promoter.revenueGenerated || 0, stats.totalStats.currency)}
@@ -690,7 +701,10 @@ export default function TripStatsModal({ isOpen, onClose, tripId, expeditionId }
                                 Unique Code
                               </th>
                               <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center">
-                                Page Views
+                                Vistas
+                              </th>
+                              <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center">
+                                Referidos
                               </th>
                               <th className="px-6 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center">
                                 Conversion Rate (%)
@@ -724,6 +738,9 @@ export default function TripStatsModal({ isOpen, onClose, tripId, expeditionId }
                                   </td>
                                   <td className="px-6 py-4 text-center text-zinc-600">
                                     {promoter.views.toLocaleString()}
+                                  </td>
+                                  <td className="px-6 py-4 text-center text-zinc-600 font-semibold">
+                                    {promoter.referralCount || 0}
                                   </td>
                                   <td className="px-6 py-4 text-center">
                                     {promoter.conversionRate > 0 ? (
